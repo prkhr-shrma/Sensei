@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ALLOWED_MODELS = new Set([
+  'claude-sonnet-4-6',
   'claude-sonnet-4-20250514',
   'claude-haiku-4-5-20251001',
   'claude-opus-4-6',
@@ -32,6 +33,12 @@ app.use('/api', rateLimit({
 app.use(express.json({ limit: '16kb' }));
 
 // ── Anthropic proxy
+// ── Health check: verify key is loaded (never exposes the key)
+app.get('/api/health', (_req, res) => {
+  const key = process.env.ANTHROPIC_API_KEY;
+  res.json({ ok: !!key, keyLoaded: !!key, hint: key ? undefined : 'Set ANTHROPIC_API_KEY in .env' });
+});
+
 app.post('/api/messages', async (req, res) => {
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not configured.' });

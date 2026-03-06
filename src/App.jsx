@@ -321,7 +321,7 @@ function Msg({text}){
   return <span>{parts.map((p,i)=>{
     if(p.startsWith("```")&&p.endsWith("```")){
       const c=p.slice(3,-3).replace(/^python\n/,'').replace(/^\n/,'');
-      return <pre key={i} style={{background:"#040912",border:"1px solid #1a3a5f",borderRadius:5,padding:"7px 10px",fontSize:11,overflowX:"auto",margin:"5px 0",lineHeight:1.5}}><code style={{color:"#93c5fd"}}>{c}</code></pre>;
+      return <pre key={i} style={{background:"var(--code)",border:"1px solid #1a3a5f",borderRadius:5,padding:"7px 10px",fontSize:11,overflowX:"auto",margin:"5px 0",lineHeight:1.5}}><code style={{color:"#93c5fd"}}>{c}</code></pre>;
     }
     if(p.startsWith("**")&&p.endsWith("**")) return <strong key={i} style={{color:"#fbbf24"}}>{p.slice(2,-2)}</strong>;
     if(p.startsWith("`")&&p.endsWith("`")) return <code key={i} style={{background:"#1e2a3a",color:"#7dd3fc",padding:"1px 4px",borderRadius:3,fontSize:11}}>{p.slice(1,-1)}</code>;
@@ -363,6 +363,7 @@ export default function App(){
   const [view,setView]=useState("practice");
   const [peekOn,setPeekOn]=useState(true);
   const [peeking,setPeeking]=useState(false);
+  const [dk,setDk]=useState(()=>localStorage.getItem('dk')!=='light');
 
   const chatRef=useRef(null);
   const peekTimer=useRef(null);
@@ -432,7 +433,7 @@ export default function App(){
       try{
         const res=await fetch("/api/messages",{
           method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:80,
+          body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:80,
             system:buildPrompt(prob,false)+"\n\nLIVE PEEK: student still coding. Only speak if you see a clear wrong direction. If on track say exactly: [skip]. Max 1 sentence.",
             messages:peekMsgs.map(m=>({role:m.role,content:m.content}))})
         });
@@ -459,13 +460,14 @@ export default function App(){
     try{
       const res=await fetch("/api/messages",{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,
+        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:100,
           system:system||buildPrompt(prob,revMode),
           messages:newMsgs.map(m=>({role:m.role,content:m.content}))})
       });
       const d=await res.json();
-      setMsgs(p=>[...p,{role:"assistant",content:d.content?.[0]?.text||"Try again."}]);
-    }catch{setMsgs(p=>[...p,{role:"assistant",content:"Error."}]);}
+      const reply=d.content?.[0]?.text||(d.error?.message?`[${d.error.type}] ${d.error.message}`:d.error||"No response.");
+      setMsgs(p=>[...p,{role:"assistant",content:reply}]);
+    }catch(e){setMsgs(p=>[...p,{role:"assistant",content:`Network error: ${e.message}`}]);}
     finally{setAiLoad(false);}
   };
 
@@ -526,24 +528,31 @@ export default function App(){
   const fmtTime=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   const timerWarn=revSecs>0&&revSecs<300; // last 5 min
 
-  if(boot) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#070b12",color:"#fbbf24",fontFamily:"monospace",fontSize:13}}>loading...</div>;
+  if(boot) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"var(--bg)",color:"#fbbf24",fontFamily:"monospace",fontSize:13}}>loading...</div>;
 
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",background:"#070b12",color:"#dde4ef",fontFamily:"'JetBrains Mono','Fira Mono',monospace",overflow:"hidden"}}>
+    <div style={{
+      "--bg":dk?"#070b12":"#f8f9fb","--panel":dk?"#0a1020":"#ffffff","--sidebar":dk?"#080e1a":"#f0f4f8",
+      "--code":dk?"#040912":"#f5f5f8","--panel2":dk?"#0b1525":"#f4f7fb","--chat":dk?"#060c16":"#f8f9fb",
+      "--deep":dk?"#0a0f1a":"#e8edf4","--border":dk?"#1a2a40":"#d0dae8","--border2":dk?"#0f1a2a":"#e4eaf4",
+      "--border3":dk?"#1a2535":"#dce5f0","--text":dk?"#dde4ef":"#1a2035","--text2":dk?"#5a7090":"#3d5168",
+      "--text3":dk?"#2a4060":"#6277a0","--text4":dk?"#1e3050":"#8095b2","--chatmsg":dk?"#0a1525":"#eef2f9",
+      "--chatuser":dk?"#0f1e35":"#e0eaf8","--codetext":dk?"#c9d4e8":"#2d3748",
+      display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"'JetBrains Mono','Fira Mono',monospace",overflow:"hidden"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
         *{box-sizing:border-box;}
         ::-webkit-scrollbar{width:4px;height:4px;}
-        ::-webkit-scrollbar-track{background:#0a0f1a;}
-        ::-webkit-scrollbar-thumb{background:#1e3050;border-radius:2px;}
+        ::-webkit-scrollbar-track{background:var(--deep);}
+        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
         @keyframes warn{0%,100%{color:#f87171}50%{color:#fbbf24}}
       `}</style>
 
       {/* ── HEADER ── */}
-      <div style={{background:"#0a1020",borderBottom:"1px solid #1a2a40",height:44,display:"flex",alignItems:"center",padding:"0 14px",gap:12,flexShrink:0}}>
-        <button onClick={()=>setSb(p=>!p)} style={{background:"none",border:"none",color:"#2a4060",cursor:"pointer",fontSize:13}}>☰</button>
+      <div style={{background:"var(--panel)",borderBottom:"1px solid var(--border)",height:44,display:"flex",alignItems:"center",padding:"0 14px",gap:12,flexShrink:0}}>
+        <button onClick={()=>setSb(p=>!p)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:13}}>☰</button>
         <span style={{fontSize:13,fontWeight:700,color:"#fbbf24",letterSpacing:-0.5}}>⚔ blind75<span style={{color:"#f87171"}}>.</span>sensei</span>
 
         {revMode?(
@@ -559,14 +568,17 @@ export default function App(){
         )}
 
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:14}}>
-          <span style={{fontSize:10,color:streak>0?"#fb923c":"#2a4060"}}>🔥{streak}d</span>
+          <span style={{fontSize:10,color:streak>0?"#fb923c":"var(--text3)"}}>🔥{streak}d</span>
           <span style={{fontSize:10,color:"#7c6fc0"}}>Lv{lvl} <span style={{color:"#3a3060"}}>{lxp}/100</span></span>
           <div style={{display:"flex",alignItems:"center",gap:6,fontSize:10}}>
-            <span style={{color:sc>0?"#4ade80":"#2a4060"}}>{sc}<span style={{color:"#1e3050"}}>/75</span></span>
-            <div style={{width:60,height:3,background:"#1a2a40",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${(sc/75)*100}%`,background:"linear-gradient(90deg,#f59e0b,#4ade80)",transition:"width 0.5s"}}/></div>
+            <span style={{color:sc>0?"#4ade80":"var(--text3)"}}>{sc}<span style={{color:"var(--text4)"}}>/75</span></span>
+            <div style={{width:60,height:3,background:"var(--border)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${(sc/75)*100}%`,background:"linear-gradient(90deg,#f59e0b,#4ade80)",transition:"width 0.5s"}}/></div>
           </div>
           {dueProblems.length>0&&<span style={{fontSize:9,color:"#f87171",background:"#1a0a0a",border:"1px solid #3a1010",padding:"1px 7px",borderRadius:3}}>⚠ {dueProblems.length} due</span>}
-          <button onClick={()=>setView(v=>v==='practice'?'dashboard':'practice')} style={{padding:"2px 9px",background:"#0f1a2a",border:"1px solid #1a2a40",color:"#3a5070",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>
+          <button onClick={()=>{const n=!dk;setDk(n);localStorage.setItem('dk',n?'dark':'light');}} title={dk?"Light mode":"Dark mode"} style={{padding:"2px 8px",background:"var(--border2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,fontSize:11,cursor:"pointer",fontFamily:"inherit",lineHeight:1}}>
+            {dk?'☀':'🌙'}
+          </button>
+          <button onClick={()=>setView(v=>v==='practice'?'dashboard':'practice')} style={{padding:"2px 9px",background:"var(--border2)",border:"1px solid var(--border)",color:"#3a5070",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>
             {view==='practice'?'📊':'◀'}
           </button>
         </div>
@@ -577,70 +589,70 @@ export default function App(){
         <div style={{flex:1,overflowY:"auto",padding:20,display:"flex",flexWrap:"wrap",gap:14,alignContent:"start"}}>
 
           {/* Daily goal */}
-          <div style={{background:"#0b1525",border:"1px solid #1a2a40",borderRadius:8,padding:14,minWidth:200}}>
-            <div style={{fontSize:10,color:"#2a4060",marginBottom:6}}>TODAY</div>
-            <div style={{fontSize:26,fontWeight:700,color:todayDone.size>=dailyGoal?"#4ade80":"#fbbf24"}}>{todayDone.size}<span style={{fontSize:13,color:"#2a4060"}}>/{dailyGoal}</span></div>
-            <div style={{marginTop:8,height:4,background:"#1a2a40",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(todayDone.size/dailyGoal,1)*100}%`,background:todayDone.size>=dailyGoal?"#4ade80":"#fbbf24",transition:"width 0.4s"}}/></div>
+          <div style={{background:"var(--panel2)",border:"1px solid var(--border)",borderRadius:8,padding:14,minWidth:200}}>
+            <div style={{fontSize:10,color:"var(--text3)",marginBottom:6}}>TODAY</div>
+            <div style={{fontSize:26,fontWeight:700,color:todayDone.size>=dailyGoal?"#4ade80":"#fbbf24"}}>{todayDone.size}<span style={{fontSize:13,color:"var(--text3)"}}>/{dailyGoal}</span></div>
+            <div style={{marginTop:8,height:4,background:"var(--border)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(todayDone.size/dailyGoal,1)*100}%`,background:todayDone.size>=dailyGoal?"#4ade80":"#fbbf24",transition:"width 0.4s"}}/></div>
             {todayDone.size>=dailyGoal&&<div style={{marginTop:6,fontSize:9,color:"#4ade80"}}>✓ Goal hit!</div>}
           </div>
 
           {/* Week calendar */}
-          <div style={{background:"#0b1525",border:"1px solid #1a2a40",borderRadius:8,padding:14,minWidth:260}}>
-            <div style={{fontSize:10,color:"#2a4060",marginBottom:8}}>WEEK SCHEDULE</div>
+          <div style={{background:"var(--panel2)",border:"1px solid var(--border)",borderRadius:8,padding:14,minWidth:260}}>
+            <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>WEEK SCHEDULE</div>
             <div style={{display:"flex",gap:5}}>
               {['M','T','W','T','F','S','S'].map((d,i)=>{
                 const isPrac=i<5,isToday=i===([0,6,1,2,3,4,5][new Date().getDay()]);
                 return <div key={i} style={{flex:1,textAlign:"center"}}>
-                  <div style={{fontSize:8,color:isToday?"#fbbf24":"#1e3050",marginBottom:3}}>{d}</div>
-                  <div style={{height:26,borderRadius:3,background:isToday?(isPrac?"#0f2010":"#0f0f30"):isPrac?"#0a150a":"#0a0a1a",border:`1px solid ${isToday?(isPrac?"#4ade80":"#818cf8"):"#1a2a40"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10}}>
+                  <div style={{fontSize:8,color:isToday?"#fbbf24":"var(--text4)",marginBottom:3}}>{d}</div>
+                  <div style={{height:26,borderRadius:3,background:isToday?(isPrac?"#0f2010":"#0f0f30"):isPrac?"#0a150a":"#0a0a1a",border:`1px solid ${isToday?(isPrac?"#4ade80":"#818cf8"):"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10}}>
                     {isPrac?"💻":"📖"}
                   </div>
                 </div>;
               })}
             </div>
-            <div style={{marginTop:8,fontSize:9,color:"#1e3050"}}>Mon–Fri: 3 problems · Sat–Sun: revision</div>
+            <div style={{marginTop:8,fontSize:9,color:"var(--text4)"}}>Mon–Fri: 3 problems · Sat–Sun: revision</div>
           </div>
 
           {/* REVISION QUEUE */}
-          <div style={{background:"#0a0f1a",border:`1px solid ${dueProblems.length>0?"#3a1010":"#1a2a40"}`,borderRadius:8,padding:14,minWidth:240}}>
-            <div style={{fontSize:10,color:dueProblems.length>0?"#f87171":"#2a4060",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
+          <div style={{background:"var(--deep)",border:`1px solid ${dueProblems.length>0?"#3a1010":"var(--border)"}`,borderRadius:8,padding:14,minWidth:240}}>
+            <div style={{fontSize:10,color:dueProblems.length>0?"#f87171":"var(--text3)",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
               <span>📖 REVISION QUEUE</span>
               {dueProblems.length>0&&<span style={{color:"#f87171"}}>{dueProblems.length} overdue</span>}
             </div>
-            {revQueue.length===0&&<div style={{fontSize:10,color:"#1e3050"}}>Solve some problems first.</div>}
+            {revQueue.length===0&&<div style={{fontSize:10,color:"var(--text4)"}}>Solve some problems first.</div>}
             {revQueue.slice(0,8).map(p=>{
               const c=conf(p.id);
               const fc=fluencyColor(c);
               const fl=fluencyLabel(c);
-              return <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #0f1a2a",cursor:"pointer"}} onClick={()=>startRevision(p)}>
+              return <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid var(--border2)",cursor:"pointer"}} onClick={()=>startRevision(p)}>
                 <div style={{width:7,height:7,borderRadius:"50%",background:fc,flexShrink:0,boxShadow:fl==='due'?`0 0 5px ${fc}`:"none"}}/>
-                <span style={{flex:1,fontSize:10,color:"#5a7090",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.title}</span>
-                <span style={{fontSize:9,color:"#2a4060"}}>{c}%</span>
+                <span style={{flex:1,fontSize:10,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.title}</span>
+                <span style={{fontSize:9,color:"var(--text3)"}}>{c}%</span>
                 <span style={{fontSize:8,color:DC[p.diff]}}>{p.diff[0]}</span>
-                <span style={{fontSize:9,color:"#2a4060",background:"#0f1520",padding:"1px 6px",borderRadius:3}}>▶ revise</span>
+                <span style={{fontSize:9,color:"var(--text3)",background:"#0f1520",padding:"1px 6px",borderRadius:3}}>▶ revise</span>
               </div>;
             })}
           </div>
 
           {/* Category progress */}
-          <div style={{background:"#0b1525",border:"1px solid #1a2a40",borderRadius:8,padding:14,minWidth:220}}>
-            <div style={{fontSize:10,color:"#2a4060",marginBottom:8}}>BY CATEGORY</div>
+          <div style={{background:"var(--panel2)",border:"1px solid var(--border)",borderRadius:8,padding:14,minWidth:220}}>
+            <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>BY CATEGORY</div>
             {CATS.map(cat=>{
               const total=P.filter(p=>p.cat===cat).length;
               const done=P.filter(p=>p.cat===cat&&solved.has(p.id)).length;
               return <div key={cat} style={{marginBottom:6}}>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:2}}>
                   <span style={{color:"#3a5070"}}>{cat}</span>
-                  <span style={{color:done===total&&done>0?"#4ade80":"#1e3050"}}>{done}/{total}</span>
+                  <span style={{color:done===total&&done>0?"#4ade80":"var(--text4)"}}>{done}/{total}</span>
                 </div>
-                <div style={{height:3,background:"#1a2a40",borderRadius:2}}><div style={{height:"100%",width:`${(done/total)*100}%`,background:done===total?"#4ade80":"#fbbf24",borderRadius:2,transition:"width 0.5s"}}/></div>
+                <div style={{height:3,background:"var(--border)",borderRadius:2}}><div style={{height:"100%",width:`${(done/total)*100}%`,background:done===total?"#4ade80":"#fbbf24",borderRadius:2,transition:"width 0.5s"}}/></div>
               </div>;
             })}
           </div>
 
           {/* XP */}
-          <div style={{background:"#0b1525",border:"1px solid #1a2a40",borderRadius:8,padding:14,minWidth:180}}>
-            <div style={{fontSize:10,color:"#2a4060",marginBottom:8}}>XP & LEVELS</div>
+          <div style={{background:"var(--panel2)",border:"1px solid var(--border)",borderRadius:8,padding:14,minWidth:180}}>
+            <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>XP & LEVELS</div>
             {['Easy','Medium','Hard'].map(d=>{
               const n=P.filter(p=>p.diff===d&&solved.has(p.id)).length;
               return <div key={d} style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:10}}>
@@ -648,13 +660,13 @@ export default function App(){
                 <span style={{color:"#5a40a0"}}>{n}×{XPV[d]}={n*XPV[d]}</span>
               </div>;
             })}
-            <div style={{borderTop:"1px solid #1a2a40",marginTop:8,paddingTop:6,fontSize:10,color:"#a78bfa"}}>Total: {xp}xp · Lv{lvl}</div>
+            <div style={{borderTop:"1px solid var(--border)",marginTop:8,paddingTop:6,fontSize:10,color:"#a78bfa"}}>Total: {xp}xp · Lv{lvl}</div>
             <div style={{marginTop:4,fontSize:9,color:"#3a3060"}}>Revision solve = {REV_XP_MULT}× XP (if cold)</div>
           </div>
 
           {/* Fluency breakdown */}
-          {sc>0&&<div style={{background:"#0b1525",border:"1px solid #1a2a40",borderRadius:8,padding:14,minWidth:200}}>
-            <div style={{fontSize:10,color:"#2a4060",marginBottom:8}}>FLUENCY STATUS</div>
+          {sc>0&&<div style={{background:"var(--panel2)",border:"1px solid var(--border)",borderRadius:8,padding:14,minWidth:200}}>
+            <div style={{fontSize:10,color:"var(--text3)",marginBottom:8}}>FLUENCY STATUS</div>
             {[["🟢 Fresh (≥80%)",P.filter(p=>solved.has(p.id)&&(conf(p.id)||0)>=80).length,"#4ade80"],
               ["🟡 Stale (50-79%)",P.filter(p=>solved.has(p.id)&&(conf(p.id)||0)>=50&&(conf(p.id)||0)<80).length,"#fbbf24"],
               ["🔴 Due (<50%)",P.filter(p=>solved.has(p.id)&&(conf(p.id)||0)<50).length,"#f87171"]
@@ -671,7 +683,7 @@ export default function App(){
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
 
         {/* ── SIDEBAR ── */}
-        <div style={{width:sb?195:0,background:"#080e1a",borderRight:"1px solid #1a2a40",overflow:"hidden",transition:"width 0.2s",flexShrink:0}}>
+        <div style={{width:sb?195:0,background:"var(--sidebar)",borderRight:"1px solid var(--border)",overflow:"hidden",transition:"width 0.2s",flexShrink:0}}>
           <div style={{width:195,height:"100%",overflowY:"auto",paddingBottom:16}}>
             {CATS.map(cat=>{
               const cPs=P.filter(p=>p.cat===cat);
@@ -679,17 +691,17 @@ export default function App(){
               const open=cats.has(cat);
               return <div key={cat}>
                 <div onClick={()=>setCats(prev=>{const n=new Set(prev);n.has(cat)?n.delete(cat):n.add(cat);return n;})}
-                  style={{padding:"7px 12px",fontSize:"9px",fontWeight:700,letterSpacing:"0.8px",color:"#1e3050",cursor:"pointer",display:"flex",justifyContent:"space-between",userSelect:"none",borderTop:"1px solid #0f1a2a"}}>
+                  style={{padding:"7px 12px",fontSize:"9px",fontWeight:700,letterSpacing:"0.8px",color:"var(--text4)",cursor:"pointer",display:"flex",justifyContent:"space-between",userSelect:"none",borderTop:"1px solid var(--border2)"}}>
                   <span>{cat.toUpperCase()}</span>
-                  <span style={{color:cS===cPs.length&&cPs.length>0?"#4ade80":"#1a2a40"}}>{cS}/{cPs.length} {open?"▾":"▸"}</span>
+                  <span style={{color:cS===cPs.length&&cPs.length>0?"#4ade80":"var(--border)"}}>{cS}/{cPs.length} {open?"▾":"▸"}</span>
                 </div>
                 {open&&cPs.map(p=>{
                   const isSel=prob.id===p.id,isSolv=solved.has(p.id),isAtt=attempted.has(p.id);
                   const c=conf(p.id);
                   const fc=fluencyColor(c);
                   return <div key={p.id} onClick={()=>selectProb(p)}
-                    style={{padding:"4px 10px 4px 13px",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",gap:5,background:isSel?"rgba(251,191,36,0.06)":"transparent",borderLeft:isSel?"2px solid #fbbf24":"2px solid transparent",color:isSel?"#fbbf24":isSolv?"#4ade80":isAtt?"#5a7090":"#1e3050"}}>
-                    <span style={{fontSize:9,flexShrink:0,color:isSolv?"#4ade80":isAtt?"#fb923c":"#1a2a40"}}>{isSolv?"✓":isAtt?"◐":"○"}</span>
+                    style={{padding:"4px 10px 4px 13px",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",gap:5,background:isSel?"rgba(251,191,36,0.06)":"transparent",borderLeft:isSel?"2px solid #fbbf24":"2px solid transparent",color:isSel?"#fbbf24":isSolv?"#4ade80":isAtt?"var(--text2)":"var(--text4)"}}>
+                    <span style={{fontSize:9,flexShrink:0,color:isSolv?"#4ade80":isAtt?"#fb923c":"var(--border)"}}>{isSolv?"✓":isAtt?"◐":"○"}</span>
                     <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,fontSize:9.5}}>{p.title}</span>
                     {/* Fluency dot */}
                     {isSolv&&fc&&<div style={{width:5,height:5,borderRadius:"50%",background:fc,flexShrink:0,boxShadow:`0 0 3px ${fc}`}}/>}
@@ -705,98 +717,98 @@ export default function App(){
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
 
           {/* Problem header */}
-          <div style={{padding:"7px 12px",background:"#0a1020",borderBottom:"1px solid #1a2a40",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
-            <span style={{fontSize:12,fontWeight:600,color:revMode?"#f87171":"#dde4ef"}}>{revMode?"⏱ ":""}{prob.title}</span>
+          <div style={{padding:"7px 12px",background:"var(--panel)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
+            <span style={{fontSize:12,fontWeight:600,color:revMode?"#f87171":"var(--text)"}}>{revMode?"⏱ ":""}{prob.title}</span>
             <span style={{fontSize:9,color:DC[prob.diff],border:`1px solid ${DC[prob.diff]}`,padding:"1px 6px",borderRadius:8}}>{prob.diff}</span>
-            <span style={{fontSize:9,color:"#1e3050",background:"#0f1a2a",padding:"1px 6px",borderRadius:8}}>{prob.pat}</span>
+            <span style={{fontSize:9,color:"var(--text4)",background:"var(--border2)",padding:"1px 6px",borderRadius:8}}>{prob.pat}</span>
             {solved.has(prob.id)&&!revMode&&<span style={{fontSize:9,color:"#4ade80"}}>✓</span>}
             {revMode&&<span style={{fontSize:9,color:"#818cf8",background:"#1a1a30",padding:"1px 8px",borderRadius:8}}>cold solve · no hints</span>}
             {/* Fluency badge */}
             {solved.has(prob.id)&&conf(prob.id)!==null&&(
-              <span style={{fontSize:9,color:fluencyColor(conf(prob.id)),background:"#0a0f1a",border:`1px solid ${fluencyColor(conf(prob.id))}30`,padding:"1px 7px",borderRadius:8}}>
+              <span style={{fontSize:9,color:fluencyColor(conf(prob.id)),background:"var(--deep)",border:`1px solid ${fluencyColor(conf(prob.id))}30`,padding:"1px 7px",borderRadius:8}}>
                 {conf(prob.id)}% {fluencyLabel(conf(prob.id))}
               </span>
             )}
-            <a href={`https://leetcode.com/problems/${prob.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}/`} target="_blank" rel="noopener noreferrer" style={{marginLeft:"auto",fontSize:9,color:"#1e3050",textDecoration:"none"}}>LC#{prob.lc}↗</a>
+            <a href={`https://leetcode.com/problems/${prob.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}/`} target="_blank" rel="noopener noreferrer" style={{marginLeft:"auto",fontSize:9,color:"var(--text4)",textDecoration:"none"}}>LC#{prob.lc}↗</a>
           </div>
 
           {/* Tabs */}
-          <div style={{display:"flex",background:"#080e1a",borderBottom:"1px solid #1a2a40",flexShrink:0}}>
+          <div style={{display:"flex",background:"var(--sidebar)",borderBottom:"1px solid var(--border)",flexShrink:0}}>
             {[["desc","Problem"],["solution","Optimal"+((!solved.has(prob.id)&&!showSol)?" 🔒":"")],["notes","Notes"]].map(([k,label])=>(
-              <button key={k} onClick={()=>setTab(k)} style={{padding:"5px 13px",fontSize:9.5,background:"none",border:"none",borderBottom:tab===k?"2px solid #fbbf24":"2px solid transparent",color:tab===k?"#fbbf24":"#2a4060",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+              <button key={k} onClick={()=>setTab(k)} style={{padding:"5px 13px",fontSize:9.5,background:"none",border:"none",borderBottom:tab===k?"2px solid #fbbf24":"2px solid transparent",color:tab===k?"#fbbf24":"var(--text3)",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
             ))}
           </div>
 
           {/* Content */}
-          <div style={{flex:1,overflowY:"auto",padding:14,fontSize:11.5,lineHeight:1.8,color:"#5a7090"}}>
+          <div style={{flex:1,overflowY:"auto",padding:14,fontSize:11.5,lineHeight:1.8,color:"var(--text2)"}}>
             {tab==="desc"&&<pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",margin:0}}>{prob.desc}</pre>}
             {tab==="solution"&&(
               !solved.has(prob.id)&&!showSol?(
                 <div style={{textAlign:"center",paddingTop:36}}>
-                  <div style={{color:"#2a4060",fontSize:12,marginBottom:14}}>Solve it first — or peek:</div>
+                  <div style={{color:"var(--text3)",fontSize:12,marginBottom:14}}>Solve it first — or peek:</div>
                   <button onClick={()=>setShowSol(true)} style={{padding:"7px 18px",background:"#1a1a30",border:"1px solid #3a3a60",color:"#818cf8",borderRadius:4,cursor:"pointer",fontFamily:"inherit",fontSize:10}}>Show anyway</button>
                 </div>
               ):(
                 <div>
-                  <div style={{marginBottom:10,padding:"8px 10px",background:"#0a1020",borderRadius:5,border:"1px solid #1a3050"}}>
+                  <div style={{marginBottom:10,padding:"8px 10px",background:"var(--panel)",borderRadius:5,border:"1px solid #1a3050"}}>
                     <div style={{fontSize:9,color:"#f59e0b",marginBottom:3,fontWeight:700}}>KEY INSIGHT</div>
                     <div style={{fontSize:10.5,color:"#7a9ab8"}}>{prob.note}</div>
                   </div>
-                  <pre style={{background:"#040912",border:"1px solid #1e3a5f",borderRadius:5,padding:"10px 12px",fontSize:11.5,overflowX:"auto",lineHeight:1.6,margin:0}}><code style={{color:"#c9d4e8"}}>{prob.sol}</code></pre>
+                  <pre style={{background:"var(--code)",border:"1px solid #1e3a5f",borderRadius:5,padding:"10px 12px",fontSize:11.5,overflowX:"auto",lineHeight:1.6,margin:0}}><code style={{color:"var(--codetext)"}}>{prob.sol}</code></pre>
                 </div>
               )
             )}
             {tab==="notes"&&(
               <textarea value={notes[prob.id]||""} onChange={e=>setNotes(p=>({...p,[prob.id]:e.target.value}))}
                 placeholder={`# ${prob.title}\nKey insight:\nTime: O(?)\nSpace: O(?)`}
-                style={{width:"100%",height:"100%",background:"transparent",border:"none",outline:"none",resize:"none",fontFamily:"inherit",fontSize:11.5,color:"#5a7090",lineHeight:1.75}}/>
+                style={{width:"100%",height:"100%",background:"transparent",border:"none",outline:"none",resize:"none",fontFamily:"inherit",fontSize:11.5,color:"var(--text2)",lineHeight:1.75}}/>
             )}
           </div>
 
           {/* Code editor */}
-          <div style={{height:205,display:"flex",flexDirection:"column",borderTop:`1px solid ${revMode?"#3a1010":"#1a2a40"}`,flexShrink:0}}>
-            <div style={{padding:"3px 12px",background:"#0a1020",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-              <span style={{fontSize:8.5,color:"#1a2a40"}}>solution.py</span>
-              <span style={{fontSize:8.5,color:revMode?"#f87171":peeking?"#fbbf24":"#1a2a40",transition:"color 0.3s"}}>
+          <div style={{height:205,display:"flex",flexDirection:"column",borderTop:`1px solid ${revMode?"#3a1010":"var(--border)"}`,flexShrink:0}}>
+            <div style={{padding:"3px 12px",background:"var(--panel)",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+              <span style={{fontSize:8.5,color:"var(--border)"}}>solution.py</span>
+              <span style={{fontSize:8.5,color:revMode?"#f87171":peeking?"#fbbf24":"var(--border)",transition:"color 0.3s"}}>
                 {revMode?`⏱ ${fmtTime(revSecs)}`:peeking?"👁 watching...":"Python 3"}
               </span>
             </div>
             <textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false}
-              style={{flex:1,background:revMode?"#08080e":"#040912",color:"#c9d4e8",fontFamily:"'JetBrains Mono',monospace",fontSize:12.5,padding:"9px 12px",border:"none",outline:"none",resize:"none",lineHeight:1.6}}/>
+              style={{flex:1,background:revMode?"#08080e":"var(--code)",color:"var(--codetext)",fontFamily:"'JetBrains Mono',monospace",fontSize:12.5,padding:"9px 12px",border:"none",outline:"none",resize:"none",lineHeight:1.6}}/>
           </div>
 
           {/* Action bar */}
-          <div style={{padding:"6px 12px",background:"#0a1020",display:"flex",gap:7,borderTop:"1px solid #1a2a40",flexShrink:0,alignItems:"center"}}>
+          <div style={{padding:"6px 12px",background:"var(--panel)",display:"flex",gap:7,borderTop:"1px solid var(--border)",flexShrink:0,alignItems:"center"}}>
             {revMode?(
               <>
                 <button onClick={markRevSolved} style={{padding:"5px 14px",background:"#fbbf24",border:"none",color:"#000",borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>✓ Submit Revision</button>
-                <span style={{fontSize:9,color:"#2a4060"}}>Cold solve &lt;15min = {REV_XP_MULT}× XP</span>
+                <span style={{fontSize:9,color:"var(--text3)"}}>Cold solve &lt;15min = {REV_XP_MULT}× XP</span>
               </>
             ):(
               <>
-                <button onClick={markSolved} disabled={solved.has(prob.id)} style={{padding:"5px 12px",background:solved.has(prob.id)?"#1a2a40":"#fbbf24",border:"none",color:solved.has(prob.id)?"#2a4060":"#000",borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
+                <button onClick={markSolved} disabled={solved.has(prob.id)} style={{padding:"5px 12px",background:solved.has(prob.id)?"var(--border)":"#fbbf24",border:"none",color:solved.has(prob.id)?"var(--text3)":"#000",borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
                   {solved.has(prob.id)?"✓ Solved":"Submit"}
                 </button>
-                <button onClick={()=>call("Review my code.",true)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"#2a4060",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
-                <button onClick={()=>call("Hint please.")} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"#2a4060",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
+                <button onClick={()=>call("Review my code.",true)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
+                <button onClick={()=>call("Hint please.")} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
                 {solved.has(prob.id)&&<button onClick={()=>startRevision(prob)} style={{padding:"5px 10px",background:"none",border:"1px solid #2a3a80",color:"#818cf8",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>📖 Revise</button>}
               </>
             )}
             <div style={{marginLeft:"auto",display:"flex",gap:4}}>
               {Array.from({length:dailyGoal}).map((_,i)=>(
-                <div key={i} style={{width:8,height:8,borderRadius:"50%",background:i<todayDone.size?"#4ade80":"#1a2a40"}}/>
+                <div key={i} style={{width:8,height:8,borderRadius:"50%",background:i<todayDone.size?"#4ade80":"var(--border)"}}/>
               ))}
             </div>
           </div>
         </div>
 
         {/* ── CHAT ── */}
-        <div style={{width:265,display:"flex",flexDirection:"column",borderLeft:`1px solid ${revMode?"#3a1010":"#1a2a40"}`,background:revMode?"#070408":"#060c16",flexShrink:0}}>
+        <div style={{width:265,display:"flex",flexDirection:"column",borderLeft:`1px solid ${revMode?"#3a1010":"var(--border)"}`,background:revMode?"#070408":"var(--chat)",flexShrink:0}}>
 
           {/* Chat header */}
-          <div style={{padding:"7px 12px",background:"#0a1020",borderBottom:"1px solid #1a2a40",display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+          <div style={{padding:"7px 12px",background:"var(--panel)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
             <span style={{width:5,height:5,borderRadius:"50%",background:revMode?"#818cf8":peeking?"#fbbf24":"#4ade80",display:"inline-block",boxShadow:peeking?"0 0 6px #fbbf24":"none",transition:"all 0.3s"}}/>
-            <span style={{fontSize:11,fontWeight:600,color:revMode?"#818cf8":"#dde4ef"}}>{revMode?"Sensei (silent)":"Sensei"}</span>
+            <span style={{fontSize:11,fontWeight:600,color:revMode?"#818cf8":"var(--text)"}}>{revMode?"Sensei (silent)":"Sensei"}</span>
             {peeking&&<span style={{fontSize:8.5,color:"#fbbf24",animation:"blink 1s infinite"}}>watching</span>}
             {!revMode&&<button onClick={()=>setPeekOn(p=>!p)} style={{marginLeft:"auto",padding:"1px 7px",background:peekOn?"#0f1a10":"#1a1010",border:`1px solid ${peekOn?"#1a3020":"#3a1010"}`,color:peekOn?"#4ade80":"#f87171",borderRadius:3,fontSize:8.5,cursor:"pointer",fontFamily:"inherit"}}>
               {peekOn?"👁 on":"👁 off"}
@@ -813,35 +825,35 @@ export default function App(){
           <div style={{flex:1,overflowY:"auto",padding:"8px 7px",display:"flex",flexDirection:"column",gap:7}}>
             {msgs.map((m,i)=>(
               <div key={i} style={{padding:"6px 8px",borderRadius:5,fontSize:11.5,lineHeight:1.6,maxWidth:"96%",
-                background:m.role==="user"?"#0f1e35":m.peek?"#0a1a10":"#0a1525",
+                background:m.role==="user"?"var(--chatuser)":m.peek?"#0a1a10":"var(--chatmsg)",
                 color:m.role==="user"?"#5a8ab0":m.peek?"#6ab88a":"#8aa0b8",
-                border:m.role==="user"?"1px solid #1a3050":m.peek?"1px solid #1a3020":"1px solid #1a2535",
+                border:m.role==="user"?"1px solid #1a3050":m.peek?"1px solid #1a3020":"1px solid var(--border3)",
                 alignSelf:m.role==="user"?"flex-end":"flex-start"}}>
                 {m.peek&&<span style={{fontSize:8,color:"#3a6040",marginRight:5}}>👁</span>}
                 <Msg text={m.content}/>
               </div>
             ))}
-            {aiLoad&&<div style={{padding:"6px 8px",borderRadius:5,fontSize:11,background:"#0a1525",border:"1px solid #1a2535",alignSelf:"flex-start",color:"#2a4060",animation:"blink 1.2s infinite"}}>...</div>}
+            {aiLoad&&<div style={{padding:"6px 8px",borderRadius:5,fontSize:11,background:"var(--chatmsg)",border:"1px solid var(--border3)",alignSelf:"flex-start",color:"var(--text3)",animation:"blink 1.2s infinite"}}>...</div>}
             <div ref={chatRef}/>
           </div>
 
           {/* Quick actions */}
-          {!revMode&&<div style={{padding:"4px 7px",borderTop:"1px solid #1a2a40",display:"flex",flexWrap:"wrap",gap:3}}>
+          {!revMode&&<div style={{padding:"4px 7px",borderTop:"1px solid var(--border)",display:"flex",flexWrap:"wrap",gap:3}}>
             {[["Hint","Hint please."],["Complexity?","Target complexity?"],["Edge cases?","What edge cases?"],["Pattern?","What's the pattern?"]].map(([l,m])=>(
               <button key={l} onClick={()=>call(m)} disabled={aiLoad}
-                style={{padding:"3px 7px",background:"#0b1525",border:"1px solid #1a2a40",color:"#2a4060",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
+                style={{padding:"3px 7px",background:"var(--panel2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
             ))}
           </div>}
 
           {/* Input */}
-          <div style={{padding:"7px",borderTop:"1px solid #1a2a40",display:"flex",gap:5,flexShrink:0}}>
+          <div style={{padding:"7px",borderTop:"1px solid var(--border)",display:"flex",gap:5,flexShrink:0}}>
             <input value={inp} onChange={e=>setInp(e.target.value)}
               onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();call(inp);}}}
               placeholder={revMode?"You're on your own...":"Ask..."}
               disabled={aiLoad}
-              style={{flex:1,background:"#0b1525",border:"1px solid #1a2a40",color:"#dde4ef",padding:"6px 8px",borderRadius:3,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
+              style={{flex:1,background:"var(--panel2)",border:"1px solid var(--border)",color:"var(--text)",padding:"6px 8px",borderRadius:3,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
             <button onClick={()=>call(inp)} disabled={aiLoad||!inp.trim()}
-              style={{padding:"6px 10px",background:inp.trim()&&!aiLoad?"#fbbf24":"#1a2a40",border:"none",color:inp.trim()&&!aiLoad?"#000":"#1e3050",borderRadius:3,fontSize:11,cursor:"pointer",fontWeight:700,transition:"background 0.15s"}}>→</button>
+              style={{padding:"6px 10px",background:inp.trim()&&!aiLoad?"#fbbf24":"var(--border)",border:"none",color:inp.trim()&&!aiLoad?"#000":"var(--text4)",borderRadius:3,fontSize:11,cursor:"pointer",fontWeight:700,transition:"background 0.15s"}}>→</button>
           </div>
         </div>
 
