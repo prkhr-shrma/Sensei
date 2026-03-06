@@ -1,7 +1,7 @@
 {
   "name": "sensei",
   "version": "1.0.0",
-  "description": "Blind75 DSA practice with AI mentor",
+  "description": "AI-powered DSA coach for Blind 75 — live hints, spaced repetition, and AI-verified solutions powered by Claude",
   "type": "module",
   "engines": {
     "node": ">=20.0.0"
