@@ -780,6 +780,7 @@ export default function App(){
               </span>
             </div>
             <textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false}
+              onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();const s=e.target.selectionStart,en=e.target.selectionEnd;const next=code.substring(0,s)+'    '+code.substring(en);setCode(next);requestAnimationFrame(()=>{e.target.selectionStart=e.target.selectionEnd=s+4;});}}}
               style={{flex:1,background:revMode?"#08080e":"var(--code)",color:"var(--codetext)",fontFamily:"'JetBrains Mono',monospace",fontSize:12.5,padding:"9px 12px",border:"none",outline:"none",resize:"none",lineHeight:1.6}}/>
           </div>
 
