@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Blind75 DSA practice with AI mentor",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "concurrently \"node server.js\" \"vite\"",
     "build": "vite build",
