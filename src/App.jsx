@@ -370,6 +370,8 @@ export default function App(){
   const [view,setView]=useState("practice");
   const [peekOn,setPeekOn]=useState(true);
   const [peeking,setPeeking]=useState(false);
+  const [pendingReview,setPendingReview]=useState(false);
+  const [reviewRejected,setReviewRejected]=useState(false);
   const [dk,setDk]=useState(()=>localStorage.getItem('dk')!=='light');
 
   const chatRef=useRef(null);
@@ -507,14 +509,26 @@ export default function App(){
       const d=await res.json();
       const reply=d.content?.[0]?.text||(d.error?.message?`[${d.error.type}] ${d.error.message}`:d.error||"No response.");
       setMsgs(p=>[...p,{role:"assistant",content:reply}]);
-    }catch(e){setMsgs(p=>[...p,{role:"assistant",content:`Network error: ${e.message}`}]);}
+      if(pendingReview){
+        setPendingReview(false);
+        if(reply.includes('✓')){
+          confirmSolved(prob.id);
+        } else {
+          setReviewRejected(true);
+          setTimeout(()=>setReviewRejected(false),2000);
+        }
+      }
+    }catch(e){
+      setMsgs(p=>[...p,{role:"assistant",content:`Network error: ${e.message}`}]);
+      setPendingReview(false);
+    }
     finally{setAiLoad(false);}
   };
 
   // ── SELECT PROBLEM ──
   const selectProb=(p)=>{
     if(revMode){setRevMode(false);setRevRunning(false);clearInterval(revInterval.current);}
-    setProb(p);setCode(TMPL);setShowSol(false);setTab("desc");
+    setProb(p);setCode(TMPL);setShowSol(false);setTab("desc");setPendingReview(false);setReviewRejected(false);
     setAttempted(prev=>new Set([...prev,p.id]));
     setMsgs([{role:"assistant",content:`**${p.title}**. What's your brute force?`}]);
   };
@@ -528,16 +542,20 @@ export default function App(){
     lastPeeked.current={code:"",pid:p.id};
   };
 
-  // ── MARK SOLVED (practice) ──
-  const markSolved=()=>{
-    const pid=prob.id; if(solved.has(pid)) return;
+  // ── MARK SOLVED (practice) — only called after AI confirms with ✓ ──
+  const confirmSolved=(pid)=>{
     const today=todayKey();
     setSolved(p=>new Set([...p,pid]));
     setTodayDone(p=>new Set([...p,pid]));
     setXp(p=>p+XPV[prob.diff]);
     if(lastDay!==today){setStreak(p=>p+1);setLastDay(today);}
     setHistory(h=>({...h,[pid]:{firstSolved:Date.now(),lastRevised:Date.now(),revCount:0}}));
-    call("Submitting — please review.",true,null,300);
+  };
+
+  const submitForReview=()=>{
+    if(solved.has(prob.id)||pendingReview) return;
+    setPendingReview(true);
+    call("Please verify my solution.",true,null,300);
   };
 
   // ── MARK REVISION SOLVED ──
@@ -830,8 +848,13 @@ export default function App(){
               </>
             ):(
               <>
-                <button onClick={markSolved} disabled={solved.has(prob.id)} style={{padding:"5px 12px",background:solved.has(prob.id)?"var(--border)":"#fbbf24",border:"none",color:solved.has(prob.id)?"var(--text3)":"#000",borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
-                  {solved.has(prob.id)?"✓ Solved":"Submit"}
+                <button onClick={submitForReview} disabled={solved.has(prob.id)||pendingReview||reviewRejected||aiLoad}
+                  style={{padding:"5px 12px",
+                    background:solved.has(prob.id)?"var(--border)":reviewRejected?"#2a0a0a":pendingReview?"#1a2a10":"#fbbf24",
+                    border:reviewRejected?"1px solid #f87171":pendingReview?"1px solid #4ade80":"none",
+                    color:solved.has(prob.id)?"var(--text3)":reviewRejected?"#f87171":pendingReview?"#4ade80":"#000",
+                    borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
+                  {solved.has(prob.id)?"✓ Solved":reviewRejected?"❌ Not yet":pendingReview?"⏳ Verifying...":"Submit"}
                 </button>
                 <button onClick={()=>call("Review my code.",true,null,300)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
                 <button onClick={()=>call("Hint please.",false,null,120)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
