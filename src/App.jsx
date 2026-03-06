@@ -477,7 +477,7 @@ export default function App(){
                 return p;
               });
             }
-          },5000);
+          },5*60*1000);
         }
       }catch{}
       finally{setAiLoad(false);}
