@@ -1,4 +1,4 @@
-# ⚔ Sensei · Your Live DSA Coach
+# ⚔ Sensei · (A)live DSA Coach
 
 An AI-powered mentor for mastering **Data Structures and Algorithms**. Built around the famous **Blind 75** — a curated set of 75 essential coding problems that cover every major DSA pattern asked in technical interviews at top companies.
 

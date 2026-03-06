@@ -596,7 +596,7 @@ export default function App(){
       <div style={{background:"var(--panel)",borderBottom:"1px solid var(--border)",height:44,display:"flex",alignItems:"center",padding:"0 14px",gap:12,flexShrink:0}}>
         <button onClick={()=>setSb(p=>!p)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:13}}>☰</button>
         <span className="fire-text" style={{fontSize:18,fontWeight:700,letterSpacing:-0.5}}>⚔ Sensei</span>
-        <span style={{fontSize:10,color:"var(--text3)",marginLeft:4}}>Your Live DSA Coach</span>
+        <span style={{fontSize:10,color:"var(--text3)",marginLeft:4}}>(A)live DSA Coach</span>
 
         {revMode?(
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#1a0a0a",border:"1px solid #5a1010",borderRadius:4,padding:"3px 10px"}}>
