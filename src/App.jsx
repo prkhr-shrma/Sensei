@@ -381,8 +381,6 @@ export default function App(){
   const [lastDay,setLastDay]=useState(null);
   const [todayDone,setTodayDone]=useState(new Set());
   const [notes,setNotes]=useState({});
-  const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sk')||"");
-  const [keyInput,setKeyInput]=useState("");
 
   // Revision system
   const [history,setHistory]=useState({}); // {pid: {firstSolved, lastRevised, revCount}}
@@ -465,8 +463,8 @@ export default function App(){
       const peekMsgs=[...msgs,{role:"user",content:`[LIVE PEEK — still coding]\n\`\`\`python\n${code}\n\`\`\``}];
       setAiLoad(true);
       try{
-        const res=await fetch("https://api.anthropic.com/v1/messages",{
-          method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        const res=await fetch("/api/messages",{
+          method:"POST",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:80,
             system:buildPrompt(prob,false)+"\n\nLIVE PEEK: student still coding. Only speak if you see a clear wrong direction. If on track say exactly: [skip]. Max 1 sentence.",
             messages:peekMsgs.map(m=>({role:m.role,content:m.content}))})
@@ -492,8 +490,8 @@ export default function App(){
     const newMsgs=[...msgs,{role:"user",content:full}];
     setMsgs(newMsgs);setInp("");setAiLoad(true);
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      const res=await fetch("/api/messages",{
+        method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:100,
           system:system||buildPrompt(prob,revMode),
           messages:newMsgs.map(m=>({role:m.role,content:m.content}))})
@@ -560,28 +558,6 @@ export default function App(){
   const sc=solved.size;
   const fmtTime=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   const timerWarn=revSecs>0&&revSecs<300; // last 5 min
-
-  if(!apiKey) return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#070b12",fontFamily:"'JetBrains Mono','Fira Mono',monospace"}}>
-      <div style={{width:340,padding:28,background:"#0a1020",border:"1px solid #1a2a40",borderRadius:8}}>
-        <div style={{fontSize:16,fontWeight:700,color:"#fbbf24",marginBottom:4}}>⚔ sensei</div>
-        <div style={{fontSize:10,color:"#2a4060",marginBottom:20}}>Enter your Anthropic API key to start. Stored locally, never shared.</div>
-        <input
-          value={keyInput}
-          onChange={e=>setKeyInput(e.target.value)}
-          onKeyDown={e=>{if(e.key==="Enter"&&keyInput.startsWith("sk-")){localStorage.setItem('sk',keyInput);setApiKey(keyInput);}}}
-          placeholder="sk-ant-..."
-          type="password"
-          style={{width:"100%",background:"#040912",border:"1px solid #1a3050",color:"#dde4ef",padding:"8px 10px",borderRadius:4,fontSize:12,fontFamily:"inherit",outline:"none",marginBottom:10}}
-        />
-        <button
-          onClick={()=>{if(keyInput.startsWith("sk-")){localStorage.setItem('sk',keyInput);setApiKey(keyInput);}}}
-          style={{width:"100%",padding:"8px",background:"#fbbf24",border:"none",color:"#000",borderRadius:4,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}
-        >Start</button>
-        <div style={{marginTop:10,fontSize:9,color:"#1a2a40"}}>Get a key at console.anthropic.com</div>
-      </div>
-    </div>
-  );
 
   if(boot) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#070b12",color:"#fbbf24",fontFamily:"monospace",fontSize:13}}>loading...</div>;
 

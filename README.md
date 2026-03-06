@@ -16,14 +16,24 @@ AI-powered DSA mentor for Blind 75. Practice problems with live guidance — Sen
    npm install
    ```
 
-2. Run dev server:
+2. Create `.env` from the example:
+   ```bash
+   cp .env.example .env
+   ```
+   Then add your [Anthropic API key](https://console.anthropic.com/) to `.env`:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-...
+   ```
+
+3. Run (starts both the Express proxy server and Vite dev server):
    ```bash
    npm run dev
    ```
 
-3. On first launch, enter your [Anthropic API key](https://console.anthropic.com/). It's stored locally in your browser — never sent anywhere except Anthropic's API.
+The API key stays in `.env` on your machine — it's never bundled, never in the browser, never committed.
 
 ## Stack
-- React + Vite
-- Claude claude-sonnet-4-20250514 (direct browser API)
+- React + Vite (frontend)
+- Express (API proxy — keeps the key server-side)
+- Claude claude-sonnet-4-20250514
 - localStorage for persistence
