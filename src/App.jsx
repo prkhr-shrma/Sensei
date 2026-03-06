@@ -316,8 +316,9 @@ async function load(){
   try{const r=await fetch('/api/progress');if(r.ok)return await r.json();}catch{}
   try{const r=localStorage.getItem('s75v3');return r?JSON.parse(r):null;}catch{return null;}
 }
+const PROGRESS_TOKEN=import.meta.env.VITE_PROGRESS_TOKEN||'';
 async function save(s){
-  try{await fetch('/api/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)});return;}catch{}
+  try{await fetch('/api/progress',{method:'POST',headers:{'Content-Type':'application/json','x-progress-token':PROGRESS_TOKEN},body:JSON.stringify(s)});return;}catch{}
   try{localStorage.setItem('s75v3',JSON.stringify(s));}catch{}
 }
 
@@ -375,6 +376,10 @@ export default function App(){
   const peekTimer=useRef(null);
   const lastPeeked=useRef({code:"",pid:null});
   const revInterval=useRef(null);
+  const shutoffTimer=useRef(null);
+  const codeRef=useRef(code);
+  const lastPeekAt=useRef(0);
+  const peekCount=useRef({pid:null,n:0});
   const TMPL="# Write your solution here\n\ndef solution():\n    pass\n";
 
   // ── LOAD ──
@@ -423,50 +428,79 @@ export default function App(){
   },[revRunning]);
 
   // ── LIVE PEEK ──
+  useEffect(()=>{ codeRef.current=code; },[code]);
+
   useEffect(()=>{
     if(!peekOn||aiLoad||revMode) return;
     const stripped=code.trim();
     if(stripped===TMPL.trim()||stripped.length<30) return;
     if(stripped===lastPeeked.current.code&&prob.id===lastPeeked.current.pid) return;
+    // Minimum 10-char delta since last peek
+    if(Math.abs(stripped.length-(lastPeeked.current.code?.length||0))<10&&prob.id===lastPeeked.current.pid) return;
+    // 60s cooldown between peeks
+    if(Date.now()-lastPeekAt.current<60000) return;
+    // Max 3 peeks per problem
+    if(peekCount.current.pid===prob.id&&peekCount.current.n>=3) return;
     clearTimeout(peekTimer.current);
+    clearTimeout(shutoffTimer.current);
     setPeeking(true);
     peekTimer.current=setTimeout(async()=>{
       if(aiLoad) return;
       lastPeeked.current={code:stripped,pid:prob.id};
+      lastPeekAt.current=Date.now();
+      peekCount.current=peekCount.current.pid===prob.id
+        ?{pid:prob.id,n:peekCount.current.n+1}
+        :{pid:prob.id,n:1};
       setPeeking(false);
-      const peekMsgs=[...msgs,{role:"user",content:`[LIVE PEEK — still coding]\n\`\`\`python\n${code}\n\`\`\``}];
+      const peekMsgs=[{role:"user",content:`Problem: ${prob.title}\nMy code so far:\n\`\`\`python\n${stripped}\n\`\`\``}];
       setAiLoad(true);
       try{
         const res=await fetch("/api/messages",{
           method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:80,
-            system:buildPrompt(prob,false)+"\n\nLIVE PEEK: student still coding. Only speak if you see a clear wrong direction. If on track say exactly: [skip]. Max 1 sentence.",
-            messages:peekMsgs.map(m=>({role:m.role,content:m.content}))})
+          body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:40,
+            system:buildPrompt(prob,false)+"\n\nLIVE PEEK: student paused. If stuck or barely started, give one tiny nudge or question. If on track, reply exactly: [skip]. Max 1 sentence.",
+            messages:peekMsgs})
         });
         const d=await res.json();
         const reply=d.content?.[0]?.text||"";
-        if(reply&&reply.trim()!=="[skip]") setMsgs(p=>[...p,{role:"assistant",content:reply,peek:true}]);
+        if(reply&&reply.trim()!=="[skip]"){
+          setMsgs(p=>[...p,{role:"assistant",content:reply,peek:true}]);
+          const codeAtNudge=stripped;
+          shutoffTimer.current=setTimeout(()=>{
+            if(codeRef.current.trim()===codeAtNudge){
+              setPeekOn(false);
+              setMsgs(p=>{
+                if(p[p.length-1]?.role==="assistant")
+                  return [...p,{role:"assistant",content:"Switching off for now — tap 👁 to turn me back on."}];
+                return p;
+              });
+            }
+          },5000);
+        }
       }catch{}
       finally{setAiLoad(false);}
-    },4000);
+    },5000);
     return()=>{clearTimeout(peekTimer.current);setPeeking(false);};
   },[code]);
 
   useEffect(()=>{
     lastPeeked.current={code:"",pid:prob.id};
+    lastPeekAt.current=0;
+    peekCount.current={pid:prob.id,n:0};
     clearTimeout(peekTimer.current);setPeeking(false);
   },[prob.id]);
 
   // ── AI CALL ──
-  const call=async(text,withCode=false,system=null)=>{
+  const call=async(text,withCode=false,system=null,maxTok=150)=>{
     if(!text.trim()&&!withCode) return;
+    clearTimeout(shutoffTimer.current);
     const full=withCode?`${text}\n\nMy code:\n\`\`\`python\n${code}\n\`\`\``:text;
     const newMsgs=[...msgs,{role:"user",content:full}];
     setMsgs(newMsgs);setInp("");setAiLoad(true);
     try{
       const res=await fetch("/api/messages",{
         method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:100,
+        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,
           system:system||buildPrompt(prob,revMode),
           messages:newMsgs.map(m=>({role:m.role,content:m.content}))})
       });
@@ -503,7 +537,7 @@ export default function App(){
     setXp(p=>p+XPV[prob.diff]);
     if(lastDay!==today){setStreak(p=>p+1);setLastDay(today);}
     setHistory(h=>({...h,[pid]:{firstSolved:Date.now(),lastRevised:Date.now(),revCount:0}}));
-    call("Submitting — please review.",true);
+    call("Submitting — please review.",true,null,300);
   };
 
   // ── MARK REVISION SOLVED ──
@@ -554,12 +588,15 @@ export default function App(){
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
         @keyframes warn{0%,100%{color:#f87171}50%{color:#fbbf24}}
+        @keyframes fire{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+        .fire-text{background:linear-gradient(90deg,#fde68a,#fbbf24,#f97316,#ef4444,#f97316,#fbbf24,#fde68a);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:fire 2s linear infinite;}
       `}</style>
 
       {/* ── HEADER ── */}
       <div style={{background:"var(--panel)",borderBottom:"1px solid var(--border)",height:44,display:"flex",alignItems:"center",padding:"0 14px",gap:12,flexShrink:0}}>
         <button onClick={()=>setSb(p=>!p)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:13}}>☰</button>
-        <span style={{fontSize:13,fontWeight:700,color:"#fbbf24",letterSpacing:-0.5}}>⚔ blind75<span style={{color:"#f87171"}}>.</span>sensei</span>
+        <span className="fire-text" style={{fontSize:18,fontWeight:700,letterSpacing:-0.5}}>⚔ Sensei</span>
+        <span style={{fontSize:10,color:"var(--text3)",marginLeft:4}}>Your Live DSA Coach</span>
 
         {revMode?(
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#1a0a0a",border:"1px solid #5a1010",borderRadius:4,padding:"3px 10px"}}>
@@ -581,10 +618,10 @@ export default function App(){
             <div style={{width:60,height:3,background:"var(--border)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${(sc/75)*100}%`,background:"linear-gradient(90deg,#f59e0b,#4ade80)",transition:"width 0.5s"}}/></div>
           </div>
           {dueProblems.length>0&&<span style={{fontSize:9,color:"#f87171",background:"#1a0a0a",border:"1px solid #3a1010",padding:"1px 7px",borderRadius:3}}>⚠ {dueProblems.length} due</span>}
-          <button onClick={()=>{const n=!dk;setDk(n);localStorage.setItem('dk',n?'dark':'light');}} title={dk?"Light mode":"Dark mode"} style={{padding:"2px 8px",background:"var(--border2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,fontSize:11,cursor:"pointer",fontFamily:"inherit",lineHeight:1}}>
+          <button onClick={()=>{const n=!dk;setDk(n);localStorage.setItem('dk',n?'dark':'light');}} title={dk?"Light mode":"Dark mode"} style={{padding:"4px 11px",background:"var(--border2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,fontSize:14,cursor:"pointer",fontFamily:"inherit",lineHeight:1}}>
             {dk?'☀':'🌙'}
           </button>
-          <button onClick={()=>setView(v=>v==='practice'?'dashboard':'practice')} style={{padding:"2px 9px",background:"var(--border2)",border:"1px solid var(--border)",color:"#3a5070",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>
+          <button onClick={()=>setView(v=>v==='practice'?'dashboard':'practice')} style={{padding:"4px 11px",background:"var(--border2)",border:"1px solid var(--border)",color:"#3a5070",borderRadius:3,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
             {view==='practice'?'📊':'◀'}
           </button>
         </div>
@@ -796,8 +833,8 @@ export default function App(){
                 <button onClick={markSolved} disabled={solved.has(prob.id)} style={{padding:"5px 12px",background:solved.has(prob.id)?"var(--border)":"#fbbf24",border:"none",color:solved.has(prob.id)?"var(--text3)":"#000",borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
                   {solved.has(prob.id)?"✓ Solved":"Submit"}
                 </button>
-                <button onClick={()=>call("Review my code.",true)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
-                <button onClick={()=>call("Hint please.")} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
+                <button onClick={()=>call("Review my code.",true,null,300)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
+                <button onClick={()=>call("Hint please.",false,null,120)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
                 {solved.has(prob.id)&&<button onClick={()=>startRevision(prob)} style={{padding:"5px 10px",background:"none",border:"1px solid #2a3a80",color:"#818cf8",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>📖 Revise</button>}
               </>
             )}
@@ -817,7 +854,7 @@ export default function App(){
             <span style={{width:5,height:5,borderRadius:"50%",background:revMode?"#818cf8":peeking?"#fbbf24":"#4ade80",display:"inline-block",boxShadow:peeking?"0 0 6px #fbbf24":"none",transition:"all 0.3s"}}/>
             <span style={{fontSize:11,fontWeight:600,color:revMode?"#818cf8":"var(--text)"}}>{revMode?"Sensei (silent)":"Sensei"}</span>
             {peeking&&<span style={{fontSize:8.5,color:"#fbbf24",animation:"blink 1s infinite"}}>watching</span>}
-            {!revMode&&<button onClick={()=>setPeekOn(p=>!p)} style={{marginLeft:"auto",padding:"1px 7px",background:peekOn?"#0f1a10":"#1a1010",border:`1px solid ${peekOn?"#1a3020":"#3a1010"}`,color:peekOn?"#4ade80":"#f87171",borderRadius:3,fontSize:8.5,cursor:"pointer",fontFamily:"inherit"}}>
+            {!revMode&&<button onClick={()=>setPeekOn(p=>!p)} style={{marginLeft:"auto",padding:"4px 11px",background:peekOn?"#0f1a10":"#1a1010",border:`1px solid ${peekOn?"#1a3020":"#3a1010"}`,color:peekOn?"#4ade80":"#f87171",borderRadius:3,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
               {peekOn?"👁 on":"👁 off"}
             </button>}
           </div>
@@ -846,8 +883,8 @@ export default function App(){
 
           {/* Quick actions */}
           {!revMode&&<div style={{padding:"4px 7px",borderTop:"1px solid var(--border)",display:"flex",flexWrap:"wrap",gap:3}}>
-            {[["Hint","Hint please."],["Complexity?","Target complexity?"],["Edge cases?","What edge cases?"],["Pattern?","What's the pattern?"]].map(([l,m])=>(
-              <button key={l} onClick={()=>call(m)} disabled={aiLoad}
+            {[["Hint","Hint please.",120],["Complexity?","Target complexity?",100],["Edge cases?","What edge cases?",100],["Pattern?","What's the pattern?",100]].map(([l,m,t])=>(
+              <button key={l} onClick={()=>call(m,false,null,t)} disabled={aiLoad}
                 style={{padding:"3px 7px",background:"var(--panel2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
             ))}
           </div>}

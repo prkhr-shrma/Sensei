@@ -40,6 +40,9 @@ app.get('/api/progress', (_req, res) => {
 });
 
 app.post('/api/progress', (req, res) => {
+  const token = process.env.PROGRESS_TOKEN;
+  if (token && req.headers['x-progress-token'] !== token)
+    return res.status(401).json({ error: 'Unauthorized.' });
   try { saveProgress(req.body); res.json({ ok: true }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });

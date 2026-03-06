@@ -13,7 +13,7 @@ process.env.NODE_ENV = 'test';
 const { app } = await import('./server.js');
 
 const VALID_BODY = {
-  model: 'claude-sonnet-4-20250514',
+  model: 'claude-sonnet-4-6',
   max_tokens: 80,
   system: 'You are Sensei.',
   messages: [{ role: 'user', content: 'Hello' }],
