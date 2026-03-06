@@ -311,9 +311,15 @@ const CATS=[...new Set(P.map(p=>p.cat))];
 const DC={Easy:"#4ade80",Medium:"#fb923c",Hard:"#f87171"};
 const REV_XP_MULT=2;
 
-// ─── STORAGE ──────────────────────────────────────────────────
-async function load(){try{const r=localStorage.getItem('s75v3');return r?JSON.parse(r):null;}catch{return null;}}
-async function save(s){try{localStorage.setItem('s75v3',JSON.stringify(s));}catch{}}
+// ─── STORAGE (SQLite via server, localStorage fallback) ───────
+async function load(){
+  try{const r=await fetch('/api/progress');if(r.ok)return await r.json();}catch{}
+  try{const r=localStorage.getItem('s75v3');return r?JSON.parse(r):null;}catch{return null;}
+}
+async function save(s){
+  try{await fetch('/api/progress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)});return;}catch{}
+  try{localStorage.setItem('s75v3',JSON.stringify(s));}catch{}
+}
 
 // ─── MSG RENDERER ─────────────────────────────────────────────
 function Msg({text}){

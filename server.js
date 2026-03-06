@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { getProgress, saveProgress } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -32,7 +33,17 @@ app.use('/api', rateLimit({
 // ── Body parsing with 16 KB cap
 app.use(express.json({ limit: '16kb' }));
 
-// ── Anthropic proxy
+// ── Progress persistence (SQLite via db.js)
+app.get('/api/progress', (_req, res) => {
+  try { res.json(getProgress()); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/progress', (req, res) => {
+  try { saveProgress(req.body); res.json({ ok: true }); }
+  catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ── Health check: verify key is loaded (never exposes the key)
 app.get('/api/health', (_req, res) => {
   const key = process.env.ANTHROPIC_API_KEY;
