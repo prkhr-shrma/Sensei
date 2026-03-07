@@ -27,15 +27,17 @@ Mastering these 75 problems gives you coverage of ~90% of interview questions at
 
 ## Features
 
+- **GitHub SSO**: sign in with GitHub — per-user progress, no passwords
 - **All 75 problems** with optimal solutions (NeetCode-curated), each tagged with pattern and difficulty
 - **Live AI coaching**: Sensei watches your code after 5s of inactivity and nudges you if you're stuck
 - **Socratic method**: hints and reviews guide you toward the answer — never just give it away
 - **AI-gated submissions**: solution only marked solved after Claude verifies it with ✓
+- **Test case runner**: run your code against custom inputs directly in the browser
 - **Spaced repetition**: confidence decay, revision queue, cold-solve detection
 - **Revision mode**: 20-min timed cold solve, no hints — proves real retention
 - XP system, daily streaks, per-category progress, fluency badges
-- **SQLite persistence**: progress saved server-side, survives page refreshes
-- Light / dark mode · Tab indentation in code editor · Keyboard shortcuts
+- **SQLite persistence**: progress saved server-side per user, survives page refreshes
+- Light / dark mode · Resizable code editor · Auto-growing chat input
 
 ---
 
@@ -51,15 +53,13 @@ Mastering these 75 problems gives you coverage of ~90% of interview questions at
    cp .env.example .env
    ```
 
-3. Generate tokens:
-   ```bash
-   npm run gen-token   # run twice — once for each token
-   ```
-   Fill in `.env`:
+3. [Create a GitHub OAuth App](https://github.com/settings/developers) and fill in `.env`:
    ```
    ANTHROPIC_API_KEY=sk-ant-...
-   PROGRESS_TOKEN=<generated>
-   VITE_PROGRESS_TOKEN=<same value as PROGRESS_TOKEN>
+   GITHUB_CLIENT_ID=<from GitHub>
+   GITHUB_CLIENT_SECRET=<from GitHub>
+   GITHUB_CALLBACK_URL=http://localhost:3001/auth/github/callback
+   SESSION_SECRET=<node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
    ```
 
 4. Start:
@@ -74,10 +74,11 @@ The API key stays in `.env` — never bundled, never in the browser, never commi
 ## Security
 
 - API key is server-side only (never reaches the browser)
-- `POST /api/progress` requires `X-Progress-Token` header
+- All API routes require GitHub session authentication
 - Rate limiting: 60 req/min per IP
 - Helmet security headers on all responses
 - Body size capped at 16 KB
+- Code runner: 5s timeout, subprocess isolation
 
 ---
 
@@ -86,8 +87,8 @@ The API key stays in `.env` — never bundled, never in the browser, never commi
 1. Push to GitHub
 2. Connect repo in Railway → set environment variables:
    - `ANTHROPIC_API_KEY`
-   - `PROGRESS_TOKEN`
-   - `VITE_PROGRESS_TOKEN` *(must be set before build)*
+   - `GITHUB_CLIENT_ID` + `GITHUB_CLIENT_SECRET` + `GITHUB_CALLBACK_URL`
+   - `SESSION_SECRET`
 3. Add a Volume mounted at `/app/data` for SQLite persistence
 
 ---
