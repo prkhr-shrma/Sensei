@@ -22,6 +22,9 @@ const MAX_TOKENS_CAP = 500;
 
 export const app = express();
 
+// ── Trust Railway's reverse proxy so secure cookies work over HTTPS
+app.set('trust proxy', 1);
+
 // ── Security headers (relax CSP for GitHub avatar images)
 app.use(helmet({
   contentSecurityPolicy: {
