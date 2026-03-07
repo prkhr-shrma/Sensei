@@ -630,13 +630,13 @@ export default function App(){
   if(boot||user===undefined) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#070b12",color:"#fbbf24",fontFamily:"monospace",fontSize:13}}>loading...</div>;
 
   if(user===null) return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#070b12",fontFamily:"'JetBrains Mono','Fira Mono',monospace",gap:28}}>
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0d1526",fontFamily:"'JetBrains Mono','Fira Mono',monospace",gap:24}}>
       <div style={{textAlign:"center"}}>
-        <div style={{fontSize:42,marginBottom:8}}>⚔</div>
+        <img src="/logo.svg" alt="Sensei" style={{width:72,height:72,marginBottom:12}}/>
         <div style={{fontSize:28,fontWeight:700,background:"linear-gradient(90deg,#fde68a,#fbbf24,#f97316)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>Sensei</div>
-        <div style={{fontSize:12,color:"#2a4060",marginTop:4}}>(A)live DSA Coach</div>
+        <div style={{fontSize:12,color:"#4a6080",marginTop:4}}>(A)live DSA Coach</div>
       </div>
-      <div style={{fontSize:11,color:"#3a5070",textAlign:"center",maxWidth:280,lineHeight:1.7}}>
+      <div style={{fontSize:11,color:"#4a6080",textAlign:"center",maxWidth:280,lineHeight:1.7}}>
         AI-powered coaching for Blind 75.<br/>Live hints · Spaced repetition · AI-verified solutions.
       </div>
       <a href="/auth/github" style={{
@@ -652,7 +652,7 @@ export default function App(){
         <svg height="20" viewBox="0 0 24 24" fill="#0d1117"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         Continue with GitHub
       </a>
-      <div style={{fontSize:9,color:"#1a2a40",textAlign:"center"}}>Only your GitHub username and avatar are stored.</div>
+      <div style={{fontSize:9,color:"#3a5070",textAlign:"center"}}>Only your GitHub username and avatar are stored.</div>
     </div>
   );
 
@@ -696,7 +696,7 @@ export default function App(){
             <button onClick={()=>{setRevMode(false);setRevRunning(false);clearInterval(revInterval.current);setCode(TMPL);setMsgs([{role:"assistant",content:"Back to practice."}]);}} style={{background:"none",border:"none",color:"#3a1010",cursor:"pointer",fontSize:10,fontFamily:"inherit"}}>✕ exit</button>
           </div>
         ):(
-          <div style={{background:dt==='revision'?"#1a2040":"#0f1a10",border:`1px solid ${dt==='revision'?"#2a3a80":"#1a3020"}`,borderRadius:3,padding:"2px 8px",fontSize:9,color:dt==='revision'?"#818cf8":"#4ade80"}}>
+          <div style={{background:dt==='revision'?(dk?"#1a2040":"#eeeeff"):(dk?"#0f1a10":"#e8f8ee"),border:`1px solid ${dt==='revision'?(dk?"#2a3a80":"#a0a8e0"):(dk?"#1a3020":"#90d0a0")}`,borderRadius:3,padding:"2px 8px",fontSize:9,color:dt==='revision'?"#818cf8":"#22a060"}}>
             {dn} · {dt==='revision'?"📖 Revision Day":"🔥 Practice Day"}
           </div>
         )}
@@ -709,17 +709,23 @@ export default function App(){
             <div style={{width:60,height:3,background:"var(--border)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${(sc/75)*100}%`,background:"linear-gradient(90deg,#f59e0b,#4ade80)",transition:"width 0.5s"}}/></div>
           </div>
           {dueProblems.length>0&&<span style={{fontSize:9,color:"#f87171",background:"#1a0a0a",border:"1px solid #3a1010",padding:"1px 7px",borderRadius:3}}>⚠ {dueProblems.length} due</span>}
-          <button onClick={()=>{const n=!dk;setDk(n);localStorage.setItem('dk',n?'dark':'light');}} title={dk?"Light mode":"Dark mode"} style={{padding:"4px 11px",background:"var(--border2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,fontSize:14,cursor:"pointer",fontFamily:"inherit",lineHeight:1}}>
-            {dk?'☀':'🌙'}
+          <button onClick={()=>{const n=!dk;setDk(n);localStorage.setItem('dk',n?'dark':'light');}} title={dk?"Switch to light mode":"Switch to dark mode"} style={{padding:"5px 8px",background:"var(--border2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,cursor:"pointer",lineHeight:0,display:"flex",alignItems:"center"}}>
+            {dk
+              ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            }
           </button>
-          <button onClick={()=>setView(v=>v==='practice'?'dashboard':'practice')} style={{padding:"4px 11px",background:"var(--border2)",border:"1px solid var(--border)",color:"#3a5070",borderRadius:3,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
-            {view==='practice'?'📊':'◀'}
+          <button onClick={()=>setView(v=>v==='practice'?'dashboard':'practice')} title={view==='practice'?"Dashboard":"Back to practice"} style={{padding:"5px 8px",background:"var(--border2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,cursor:"pointer",lineHeight:0,display:"flex",alignItems:"center"}}>
+            {view==='practice'
+              ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            }
           </button>
           {/* User avatar + logout */}
           <div style={{display:"flex",alignItems:"center",gap:7,borderLeft:"1px solid var(--border)",paddingLeft:12}}>
             {user.avatarUrl&&<img src={user.avatarUrl} alt={user.username} style={{width:22,height:22,borderRadius:"50%",border:"1px solid var(--border)"}}/>}
             <span style={{fontSize:9,color:"var(--text3)"}}>{user.username}</span>
-            <button onClick={logout} title="Sign out" style={{padding:"3px 8px",background:"none",border:"1px solid var(--border)",color:"var(--text4)",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>out</button>
+            <button onClick={logout} title="Sign out" style={{padding:"3px 8px",background:"none",border:"1px solid var(--border)",color:"var(--text4)",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>Sign out</button>
           </div>
         </div>
       </div>
@@ -1006,7 +1012,7 @@ export default function App(){
             <span style={{width:5,height:5,borderRadius:"50%",background:revMode?"#818cf8":peeking?"#fbbf24":"#4ade80",display:"inline-block",boxShadow:peeking?"0 0 6px #fbbf24":"none",transition:"all 0.3s"}}/>
             <span style={{fontSize:11,fontWeight:600,color:revMode?"#818cf8":"var(--text)"}}>{revMode?"Sensei (silent)":"Sensei"}</span>
             {peeking&&<span style={{fontSize:8.5,color:"#fbbf24",animation:"blink 1s infinite"}}>watching</span>}
-            {!revMode&&<button onClick={()=>setPeekOn(p=>!p)} style={{marginLeft:"auto",padding:"4px 11px",background:peekOn?"#0f1a10":"#1a1010",border:`1px solid ${peekOn?"#1a3020":"#3a1010"}`,color:peekOn?"#4ade80":"#f87171",borderRadius:3,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
+            {!revMode&&<button onClick={()=>setPeekOn(p=>!p)} style={{marginLeft:"auto",padding:"4px 11px",background:peekOn?(dk?"#0f1a10":"#e8f8ee"):(dk?"#1a1010":"#fdecea"),border:`1px solid ${peekOn?(dk?"#1a3020":"#90d0a0"):(dk?"#3a1010":"#f0a0a0")}`,color:peekOn?"#4ade80":"#f87171",borderRadius:3,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
               {peekOn?"👁 on":"👁 off"}
             </button>}
           </div>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" rx="40" fill="#070b12"/>
+  <defs>
+    <linearGradient id="fire" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#fde68a"/>
+      <stop offset="30%"  stop-color="#fbbf24"/>
+      <stop offset="60%"  stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+  </defs>
+  <text x="100" y="125" font-size="110" text-anchor="middle" fill="url(#fire)" font-family="serif">⚔</text>
+  <text x="100" y="168" font-size="22" font-weight="700" text-anchor="middle" fill="#fbbf24" font-family="monospace" letter-spacing="-0.5">SENSEI</text>
+</svg>
