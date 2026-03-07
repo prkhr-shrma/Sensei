@@ -2,8 +2,8 @@
  * db.js — isolated data layer.
  *
  * Currently backed by SQLite (better-sqlite3).
- * To migrate to PostgreSQL: replace the implementation of getProgress()
- * and saveProgress() below. The interface stays the same, nothing else changes.
+ * To migrate to PostgreSQL: replace the implementation of the functions below.
+ * The interface stays the same; nothing else changes.
  */
 import Database from 'better-sqlite3';
 import fs from 'fs';
@@ -18,25 +18,49 @@ const db = new Database(path.join(DATA_DIR, 'progress.db'));
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS progress (
-    id      INTEGER PRIMARY KEY CHECK (id = 1),
-    data    TEXT    NOT NULL DEFAULT '{}',
+    user_id  TEXT    PRIMARY KEY,
+    data     TEXT    NOT NULL DEFAULT '{}',
     saved_at INTEGER DEFAULT (strftime('%s','now'))
-  )
+  );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id         TEXT PRIMARY KEY,
+    github_id  TEXT UNIQUE NOT NULL,
+    username   TEXT NOT NULL,
+    avatar_url TEXT,
+    created_at INTEGER DEFAULT (strftime('%s','now'))
+  );
 `);
 
-// Ensure exactly one row always exists
-db.prepare("INSERT OR IGNORE INTO progress (id, data) VALUES (1, '{}')").run();
+// ── Progress (per-user) ───────────────────────────────────────
 
-// ── Public interface ──────────────────────────────────────────
-// Swap these two functions when moving to PostgreSQL.
-
-export function getProgress() {
-  const row = db.prepare('SELECT data FROM progress WHERE id = 1').get();
+export function getProgress(userId = 'default') {
+  const row = db.prepare('SELECT data FROM progress WHERE user_id = ?').get(userId);
   try { return JSON.parse(row?.data ?? '{}'); } catch { return {}; }
 }
 
-export function saveProgress(data) {
+export function saveProgress(data, userId = 'default') {
   db.prepare(
-    "UPDATE progress SET data = ?, saved_at = strftime('%s','now') WHERE id = 1"
-  ).run(JSON.stringify(data));
+    `INSERT INTO progress (user_id, data, saved_at)
+     VALUES (?, ?, strftime('%s','now'))
+     ON CONFLICT(user_id) DO UPDATE SET
+       data = excluded.data,
+       saved_at = excluded.saved_at`
+  ).run(userId, JSON.stringify(data));
+}
+
+// ── Users ─────────────────────────────────────────────────────
+
+export function upsertUser({ id, githubId, username, avatarUrl }) {
+  db.prepare(
+    `INSERT INTO users (id, github_id, username, avatar_url)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(github_id) DO UPDATE SET
+       username = excluded.username,
+       avatar_url = excluded.avatar_url`
+  ).run(id, githubId, username, avatarUrl);
+}
+
+export function getUserByGithubId(githubId) {
+  return db.prepare('SELECT * FROM users WHERE github_id = ?').get(githubId);
 }

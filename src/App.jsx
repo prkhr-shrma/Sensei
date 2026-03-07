@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { XPV, REV_THRESHOLD, getConfidence, fluencyColor, fluencyLabel, buildPrompt, todayKey, dayType, dayName } from './utils.js';
 
 // ─────────────────────────────────────────────────────────────
@@ -311,14 +311,13 @@ const CATS=[...new Set(P.map(p=>p.cat))];
 const DC={Easy:"#4ade80",Medium:"#fb923c",Hard:"#f87171"};
 const REV_XP_MULT=2;
 
-// ─── STORAGE (SQLite via server, localStorage fallback) ───────
+// ─── STORAGE (SQLite via server — session auth, localStorage fallback) ───────
 async function load(){
-  try{const r=await fetch('/api/progress');if(r.ok)return await r.json();}catch{}
-  try{const r=localStorage.getItem('s75v3');return r?JSON.parse(r):null;}catch{return null;}
+  try{const r=await fetch('/api/progress',{credentials:'include'});if(r.ok)return await r.json();}catch{}
+  try{const raw=localStorage.getItem('s75v3');return raw?JSON.parse(raw):null;}catch{return null;}
 }
-const PROGRESS_TOKEN=import.meta.env.VITE_PROGRESS_TOKEN||'';
 async function save(s){
-  try{await fetch('/api/progress',{method:'POST',headers:{'Content-Type':'application/json','x-progress-token':PROGRESS_TOKEN},body:JSON.stringify(s)});return;}catch{}
+  try{await fetch('/api/progress',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(s)});return;}catch{}
   try{localStorage.setItem('s75v3',JSON.stringify(s));}catch{}
 }
 
@@ -340,6 +339,7 @@ function Msg({text}){
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────
 export default function App(){
+  const [user,setUser]=useState(undefined); // undefined=loading, null=not authed, obj=authed
   const [boot,setBoot]=useState(true);
   const [prob,setProb]=useState(P[0]);
   const [code,setCode]=useState("# Write your solution here\n\ndef solution():\n    pass\n");
@@ -392,28 +392,35 @@ export default function App(){
   const lastChatAt=useRef(0);
   const TMPL="# Write your solution here\n\ndef solution():\n    pass\n";
 
-  // ── LOAD ──
+  // ── LOAD (check auth first, then load progress) ──
+  const applyProgress=useCallback(s=>{
+    if(!s) return;
+    setSolved(new Set(s.solved||[]));
+    setAttempted(new Set(s.attempted||[]));
+    setStreak(s.streak||0);
+    setXp(s.xp||0);
+    setNotes(s.notes||{});
+    setHistory(s.history||{});
+    const today=todayKey();
+    if(s.lastDay===today) setTodayDone(new Set(s.todayDone||[]));
+    else{
+      const yd=new Date(); yd.setDate(yd.getDate()-1);
+      const yk=`${yd.getFullYear()}-${yd.getMonth()}-${yd.getDate()}`;
+      if(s.lastDay!==yk&&(s.streak||0)>0) setStreak(0);
+      setTodayDone(new Set());
+    }
+    setLastDay(s.lastDay||null);
+  },[]);
+
   useEffect(()=>{
-    load().then(s=>{
-      if(s){
-        setSolved(new Set(s.solved||[]));
-        setAttempted(new Set(s.attempted||[]));
-        setStreak(s.streak||0);
-        setXp(s.xp||0);
-        setNotes(s.notes||{});
-        setHistory(s.history||{});
-        const today=todayKey();
-        if(s.lastDay===today) setTodayDone(new Set(s.todayDone||[]));
-        else{
-          const yd=new Date(); yd.setDate(yd.getDate()-1);
-          const yk=`${yd.getFullYear()}-${yd.getMonth()}-${yd.getDate()}`;
-          if(s.lastDay!==yk&&(s.streak||0)>0) setStreak(0);
-          setTodayDone(new Set());
-        }
-        setLastDay(s.lastDay||null);
-      }
-      setBoot(false);
-    });
+    fetch('/api/me',{credentials:'include'})
+      .then(r=>r.json())
+      .then(({user:u})=>{
+        setUser(u||null);
+        if(u) return load().then(applyProgress);
+      })
+      .catch(()=>setUser(null))
+      .finally(()=>setBoot(false));
   },[]);
 
   // ── SAVE ──
@@ -574,6 +581,11 @@ export default function App(){
     call("Please verify my solution.",true,null,300);
   };
 
+  const logout=async()=>{
+    await fetch('/api/logout',{method:'POST',credentials:'include'});
+    setUser(null);
+  };
+
   const runCode=async(stdin="")=>{
     if(!code.trim()||testLoad) return;
     setTestLoad(true);setTestOut(null);
@@ -613,7 +625,34 @@ export default function App(){
   const fmtTime=s=>`${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
   const timerWarn=revSecs>0&&revSecs<300; // last 5 min
 
-  if(boot) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"var(--bg)",color:"#fbbf24",fontFamily:"monospace",fontSize:13}}>loading...</div>;
+  if(boot||user===undefined) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#070b12",color:"#fbbf24",fontFamily:"monospace",fontSize:13}}>loading...</div>;
+
+  if(user===null) return (
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#070b12",fontFamily:"'JetBrains Mono','Fira Mono',monospace",gap:28}}>
+      <div style={{textAlign:"center"}}>
+        <div style={{fontSize:42,marginBottom:8}}>⚔</div>
+        <div style={{fontSize:28,fontWeight:700,background:"linear-gradient(90deg,#fde68a,#fbbf24,#f97316)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}>Sensei</div>
+        <div style={{fontSize:12,color:"#2a4060",marginTop:4}}>(A)live DSA Coach</div>
+      </div>
+      <div style={{fontSize:11,color:"#3a5070",textAlign:"center",maxWidth:280,lineHeight:1.7}}>
+        AI-powered coaching for Blind 75.<br/>Live hints · Spaced repetition · AI-verified solutions.
+      </div>
+      <a href="/auth/github" style={{
+        display:"flex",alignItems:"center",gap:10,
+        padding:"11px 24px",borderRadius:6,
+        background:"#ffffff",color:"#0d1117",
+        fontSize:13,fontWeight:700,textDecoration:"none",
+        fontFamily:"inherit",transition:"opacity 0.15s"
+      }}
+        onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+        onMouseLeave={e=>e.currentTarget.style.opacity="1"}
+      >
+        <svg height="20" viewBox="0 0 24 24" fill="#0d1117"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        Continue with GitHub
+      </a>
+      <div style={{fontSize:9,color:"#1a2a40",textAlign:"center"}}>Only your GitHub username and avatar are stored.</div>
+    </div>
+  );
 
   return(
     <div style={{
@@ -674,6 +713,12 @@ export default function App(){
           <button onClick={()=>setView(v=>v==='practice'?'dashboard':'practice')} style={{padding:"4px 11px",background:"var(--border2)",border:"1px solid var(--border)",color:"#3a5070",borderRadius:3,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
             {view==='practice'?'📊':'◀'}
           </button>
+          {/* User avatar + logout */}
+          <div style={{display:"flex",alignItems:"center",gap:7,borderLeft:"1px solid var(--border)",paddingLeft:12}}>
+            {user.avatarUrl&&<img src={user.avatarUrl} alt={user.username} style={{width:22,height:22,borderRadius:"50%",border:"1px solid var(--border)"}}/>}
+            <span style={{fontSize:9,color:"var(--text3)"}}>{user.username}</span>
+            <button onClick={logout} title="Sign out" style={{padding:"3px 8px",background:"none",border:"1px solid var(--border)",color:"var(--text4)",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>out</button>
+          </div>
         </div>
       </div>
 
