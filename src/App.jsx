@@ -328,10 +328,10 @@ function Msg({text}){
   return <span>{parts.map((p,i)=>{
     if(p.startsWith("```")&&p.endsWith("```")){
       const c=p.slice(3,-3).replace(/^python\n/,'').replace(/^\n/,'');
-      return <pre key={i} style={{background:"var(--code)",border:"1px solid #1a3a5f",borderRadius:5,padding:"7px 10px",fontSize:11,overflowX:"auto",margin:"5px 0",lineHeight:1.5}}><code style={{color:"#93c5fd"}}>{c}</code></pre>;
+      return <pre key={i} style={{background:"var(--code)",border:"1px solid var(--code-border)",borderRadius:5,padding:"7px 10px",fontSize:11,overflowX:"auto",margin:"5px 0",lineHeight:1.5}}><code style={{color:"var(--codetext)"}}>{c}</code></pre>;
     }
-    if(p.startsWith("**")&&p.endsWith("**")) return <strong key={i} style={{color:"#fbbf24"}}>{p.slice(2,-2)}</strong>;
-    if(p.startsWith("`")&&p.endsWith("`")) return <code key={i} style={{background:"#1e2a3a",color:"#7dd3fc",padding:"1px 4px",borderRadius:3,fontSize:11}}>{p.slice(1,-1)}</code>;
+    if(p.startsWith("**")&&p.endsWith("**")) return <strong key={i} style={{color:"var(--accent)"}}>{p.slice(2,-2)}</strong>;
+    if(p.startsWith("`")&&p.endsWith("`")) return <code key={i} style={{background:"var(--inline-code-bg)",color:"var(--inline-code-color)",padding:"1px 4px",borderRadius:3,fontSize:11}}>{p.slice(1,-1)}</code>;
     return <span key={i}>{p}</span>;
   })}</span>;
 }
@@ -373,8 +373,15 @@ export default function App(){
   const [pendingReview,setPendingReview]=useState(false);
   const [reviewRejected,setReviewRejected]=useState(false);
   const [dk,setDk]=useState(()=>localStorage.getItem('dk')!=='light');
+  const [codeH,setCodeH]=useState(205);
+  const dragRef=useRef(null);
+  const [testOpen,setTestOpen]=useState(false);
+  const [customIn,setCustomIn]=useState("");
+  const [testOut,setTestOut]=useState(null);
+  const [testLoad,setTestLoad]=useState(false);
 
   const chatRef=useRef(null);
+  const chatInputRef=useRef(null);
   const peekTimer=useRef(null);
   const lastPeeked=useRef({code:"",pid:null});
   const revInterval=useRef(null);
@@ -382,6 +389,7 @@ export default function App(){
   const codeRef=useRef(code);
   const lastPeekAt=useRef(0);
   const peekCount=useRef({pid:null,n:0});
+  const lastChatAt=useRef(0);
   const TMPL="# Write your solution here\n\ndef solution():\n    pass\n";
 
   // ── LOAD ──
@@ -454,7 +462,9 @@ export default function App(){
         ?{pid:prob.id,n:peekCount.current.n+1}
         :{pid:prob.id,n:1};
       setPeeking(false);
-      const peekMsgs=[{role:"user",content:`Problem: ${prob.title}\nMy code so far:\n\`\`\`python\n${stripped}\n\`\`\``}];
+      // Include recent chat history so peek is coherent with prior conversation
+      const recentChat=msgs.slice(-6).map(m=>({role:m.role,content:m.content}));
+      const peekMsgs=[...recentChat,{role:"user",content:`[continuing to edit code]\nMy code so far:\n\`\`\`python\n${stripped}\n\`\`\``}];
       setAiLoad(true);
       try{
         const res=await fetch("/api/messages",{
@@ -467,9 +477,11 @@ export default function App(){
         const reply=d.content?.[0]?.text||"";
         if(reply&&reply.trim()!=="[skip]"){
           setMsgs(p=>[...p,{role:"assistant",content:reply,peek:true}]);
+          requestAnimationFrame(()=>chatInputRef.current?.focus());
           const codeAtNudge=stripped;
           shutoffTimer.current=setTimeout(()=>{
-            if(codeRef.current.trim()===codeAtNudge){
+            // Stay alive if user has been chatting in the last 5 min
+            if(codeRef.current.trim()===codeAtNudge&&Date.now()-lastChatAt.current>5*60*1000){
               setPeekOn(false);
               setMsgs(p=>{
                 if(p[p.length-1]?.role==="assistant")
@@ -495,6 +507,7 @@ export default function App(){
   // ── AI CALL ──
   const call=async(text,withCode=false,system=null,maxTok=150)=>{
     if(!text.trim()&&!withCode) return;
+    lastChatAt.current=Date.now();
     clearTimeout(shutoffTimer.current);
     const full=withCode?`${text}\n\nMy code:\n\`\`\`python\n${code}\n\`\`\``:text;
     const newMsgs=[...msgs,{role:"user",content:full}];
@@ -513,11 +526,14 @@ export default function App(){
         setPendingReview(false);
         if(reply.includes('✓')){
           confirmSolved(prob.id);
+          // reset peek so it works on next problem
+          peekCount.current={pid:prob.id,n:0};
         } else {
           setReviewRejected(true);
           setTimeout(()=>setReviewRejected(false),2000);
         }
       }
+      requestAnimationFrame(()=>chatInputRef.current?.focus());
     }catch(e){
       setMsgs(p=>[...p,{role:"assistant",content:`Network error: ${e.message}`}]);
       setPendingReview(false);
@@ -528,7 +544,7 @@ export default function App(){
   // ── SELECT PROBLEM ──
   const selectProb=(p)=>{
     if(revMode){setRevMode(false);setRevRunning(false);clearInterval(revInterval.current);}
-    setProb(p);setCode(TMPL);setShowSol(false);setTab("desc");setPendingReview(false);setReviewRejected(false);
+    setProb(p);setCode(TMPL);setShowSol(false);setTab("desc");setPendingReview(false);setReviewRejected(false);setTestOut(null);setCustomIn("");
     setAttempted(prev=>new Set([...prev,p.id]));
     setMsgs([{role:"assistant",content:`**${p.title}**. What's your brute force?`}]);
   };
@@ -556,6 +572,17 @@ export default function App(){
     if(solved.has(prob.id)||pendingReview) return;
     setPendingReview(true);
     call("Please verify my solution.",true,null,300);
+  };
+
+  const runCode=async(stdin="")=>{
+    if(!code.trim()||testLoad) return;
+    setTestLoad(true);setTestOut(null);
+    try{
+      const r=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,stdin})});
+      const d=await r.json();
+      setTestOut(d);
+    }catch(e){setTestOut({stdout:'',stderr:e.message,exitCode:-1});}
+    finally{setTestLoad(false);}
   };
 
   // ── MARK REVISION SOLVED ──
@@ -596,6 +623,11 @@ export default function App(){
       "--border3":dk?"#1a2535":"#dce5f0","--text":dk?"#dde4ef":"#1a2035","--text2":dk?"#5a7090":"#3d5168",
       "--text3":dk?"#2a4060":"#6277a0","--text4":dk?"#1e3050":"#8095b2","--chatmsg":dk?"#0a1525":"#eef2f9",
       "--chatuser":dk?"#0f1e35":"#e0eaf8","--codetext":dk?"#c9d4e8":"#2d3748",
+      "--code-border":dk?"#1a3a5f":"#c0d0e8","--inline-code-bg":dk?"#1e2a3a":"#e0eaf5",
+      "--inline-code-color":dk?"#7dd3fc":"#1a6080","--accent":"#fbbf24",
+      "--btn-border":dk?"#1e3050":"#b0c0d8","--chat-peek-bg":dk?"#0a1a10":"#e8f4ec",
+      "--chat-peek-color":dk?"#6ab88a":"#1a6a3a","--chat-peek-border":dk?"#1a3020":"#b0d8c0",
+      "--chat-user-color":dk?"#5a8ab0":"#1a4a6a","--chat-msg-color":dk?"#8aa0b8":"#2a4060",
       display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"'JetBrains Mono','Fira Mono',monospace",overflow:"hidden"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
@@ -807,15 +839,15 @@ export default function App(){
               !solved.has(prob.id)&&!showSol?(
                 <div style={{textAlign:"center",paddingTop:36}}>
                   <div style={{color:"var(--text3)",fontSize:12,marginBottom:14}}>Solve it first — or peek:</div>
-                  <button onClick={()=>setShowSol(true)} style={{padding:"7px 18px",background:"#1a1a30",border:"1px solid #3a3a60",color:"#818cf8",borderRadius:4,cursor:"pointer",fontFamily:"inherit",fontSize:10}}>Show anyway</button>
+                  <button onClick={()=>setShowSol(true)} style={{padding:"7px 18px",background:dk?"#1a1a30":"#eeeef8",border:`1px solid ${dk?"#3a3a60":"#a0a0d0"}`,color:"#818cf8",borderRadius:4,cursor:"pointer",fontFamily:"inherit",fontSize:10}}>Show anyway</button>
                 </div>
               ):(
                 <div>
-                  <div style={{marginBottom:10,padding:"8px 10px",background:"var(--panel)",borderRadius:5,border:"1px solid #1a3050"}}>
+                  <div style={{marginBottom:10,padding:"8px 10px",background:"var(--panel)",borderRadius:5,border:"1px solid var(--btn-border)"}}>
                     <div style={{fontSize:9,color:"#f59e0b",marginBottom:3,fontWeight:700}}>KEY INSIGHT</div>
-                    <div style={{fontSize:10.5,color:"#7a9ab8"}}>{prob.note}</div>
+                    <div style={{fontSize:10.5,color:dk?"#7a9ab8":"#2a5070"}}>{prob.note}</div>
                   </div>
-                  <pre style={{background:"var(--code)",border:"1px solid #1e3a5f",borderRadius:5,padding:"10px 12px",fontSize:11.5,overflowX:"auto",lineHeight:1.6,margin:0}}><code style={{color:"var(--codetext)"}}>{prob.sol}</code></pre>
+                  <pre style={{background:"var(--code)",border:"1px solid var(--code-border)",borderRadius:5,padding:"10px 12px",fontSize:11.5,overflowX:"auto",lineHeight:1.6,margin:0}}><code style={{color:"var(--codetext)"}}>{prob.sol}</code></pre>
                 </div>
               )
             )}
@@ -827,7 +859,24 @@ export default function App(){
           </div>
 
           {/* Code editor */}
-          <div style={{height:205,display:"flex",flexDirection:"column",borderTop:`1px solid ${revMode?"#3a1010":"var(--border)"}`,flexShrink:0}}>
+          <div style={{height:codeH,display:"flex",flexDirection:"column",borderTop:`1px solid ${revMode?"#3a1010":"var(--border)"}`,flexShrink:0}}>
+            {/* Drag handle */}
+            <div ref={dragRef}
+              onMouseDown={e=>{
+                e.preventDefault();
+                const startY=e.clientY, startH=codeH;
+                const onMove=mv=>{
+                  const delta=startY-mv.clientY;
+                  setCodeH(Math.min(520,Math.max(140,startH+delta)));
+                };
+                const onUp=()=>{window.removeEventListener('mousemove',onMove);window.removeEventListener('mouseup',onUp);};
+                window.addEventListener('mousemove',onMove);
+                window.addEventListener('mouseup',onUp);
+              }}
+              style={{height:6,background:"var(--border2)",cursor:"ns-resize",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}
+            >
+              <div style={{width:28,height:2,borderRadius:1,background:"var(--border)"}}/>
+            </div>
             <div style={{padding:"3px 12px",background:"var(--panel)",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
               <span style={{fontSize:8.5,color:"var(--border)"}}>solution.py</span>
               <span style={{fontSize:8.5,color:revMode?"#f87171":peeking?"#fbbf24":"var(--border)",transition:"color 0.3s"}}>
@@ -848,7 +897,7 @@ export default function App(){
               </>
             ):(
               <>
-                <button onClick={submitForReview} disabled={solved.has(prob.id)||pendingReview||reviewRejected||aiLoad}
+                <button onClick={submitForReview} disabled={solved.has(prob.id)||pendingReview||reviewRejected}
                   style={{padding:"5px 12px",
                     background:solved.has(prob.id)?"var(--border)":reviewRejected?"#2a0a0a":pendingReview?"#1a2a10":"#fbbf24",
                     border:reviewRejected?"1px solid #f87171":pendingReview?"1px solid #4ade80":"none",
@@ -856,9 +905,10 @@ export default function App(){
                     borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
                   {solved.has(prob.id)?"✓ Solved":reviewRejected?"❌ Not yet":pendingReview?"⏳ Verifying...":"Submit"}
                 </button>
-                <button onClick={()=>call("Review my code.",true,null,300)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
-                <button onClick={()=>call("Hint please.",false,null,120)} style={{padding:"5px 10px",background:"none",border:"1px solid #1e3050",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
-                {solved.has(prob.id)&&<button onClick={()=>startRevision(prob)} style={{padding:"5px 10px",background:"none",border:"1px solid #2a3a80",color:"#818cf8",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>📖 Revise</button>}
+                <button onClick={()=>call("Review my code.",true,null,300)} style={{padding:"5px 10px",background:"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
+                <button onClick={()=>call("Hint please.",false,null,120)} style={{padding:"5px 10px",background:"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
+                <button onClick={()=>setTestOpen(p=>!p)} style={{padding:"5px 10px",background:testOpen?"var(--border2)":"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>▶ Test</button>
+                {solved.has(prob.id)&&<button onClick={()=>startRevision(prob)} style={{padding:"5px 10px",background:"none",border:`1px solid ${dk?"#2a3a80":"#8090c8"}`,color:"#818cf8",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>📖 Revise</button>}
               </>
             )}
             <div style={{marginLeft:"auto",display:"flex",gap:4}}>
@@ -867,6 +917,38 @@ export default function App(){
               ))}
             </div>
           </div>
+
+          {/* ── TEST PANEL ── */}
+          {testOpen&&!revMode&&(
+            <div style={{borderTop:"1px solid var(--border)",background:"var(--panel2)",padding:"8px 12px",flexShrink:0}}>
+              <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:9,color:"var(--text3)",fontWeight:700}}>CUSTOM INPUT</span>
+                <span style={{fontSize:8,color:"var(--text4)"}}>(stdin — your code reads via input())</span>
+              </div>
+              <div style={{display:"flex",gap:6,marginBottom:6}}>
+                <textarea value={customIn} onChange={e=>setCustomIn(e.target.value)} rows={2}
+                  placeholder="e.g. [2,7,11,15]\n9"
+                  style={{flex:1,background:"var(--code)",border:"1px solid var(--border)",color:"var(--codetext)",fontFamily:"'JetBrains Mono',monospace",fontSize:10.5,padding:"5px 7px",borderRadius:3,resize:"vertical",outline:"none"}}/>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <button onClick={()=>runCode(customIn)} disabled={testLoad}
+                    style={{padding:"5px 10px",background:"#fbbf24",border:"none",color:"#000",borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                    {testLoad?"...":"▶ Run"}
+                  </button>
+                  <button onClick={()=>runCode("")} disabled={testLoad}
+                    style={{padding:"5px 10px",background:"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                    No input
+                  </button>
+                </div>
+              </div>
+              {testOut&&(
+                <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:10.5,lineHeight:1.5}}>
+                  {testOut.stdout&&<pre style={{background:"var(--code)",border:"1px solid var(--code-border)",borderRadius:3,padding:"5px 8px",margin:"0 0 4px",color:dk?"#4ade80":"#1a6a3a",whiteSpace:"pre-wrap"}}>{testOut.stdout}</pre>}
+                  {testOut.stderr&&<pre style={{background:dk?"#0a0808":"#fdf0f0",border:"1px solid #f87171",borderRadius:3,padding:"5px 8px",margin:0,color:"#f87171",whiteSpace:"pre-wrap"}}>{testOut.stderr}</pre>}
+                  {!testOut.stdout&&!testOut.stderr&&<span style={{fontSize:9,color:"var(--text4)"}}>No output.</span>}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── CHAT ── */}
@@ -892,9 +974,9 @@ export default function App(){
           <div style={{flex:1,overflowY:"auto",padding:"8px 7px",display:"flex",flexDirection:"column",gap:7}}>
             {msgs.map((m,i)=>(
               <div key={i} style={{padding:"6px 8px",borderRadius:5,fontSize:11.5,lineHeight:1.6,maxWidth:"96%",
-                background:m.role==="user"?"var(--chatuser)":m.peek?"#0a1a10":"var(--chatmsg)",
-                color:m.role==="user"?"#5a8ab0":m.peek?"#6ab88a":"#8aa0b8",
-                border:m.role==="user"?"1px solid #1a3050":m.peek?"1px solid #1a3020":"1px solid var(--border3)",
+                background:m.role==="user"?"var(--chatuser)":m.peek?"var(--chat-peek-bg)":"var(--chatmsg)",
+                color:m.role==="user"?"var(--chat-user-color)":m.peek?"var(--chat-peek-color)":"var(--chat-msg-color)",
+                border:m.role==="user"?"1px solid var(--btn-border)":m.peek?"1px solid var(--chat-peek-border)":"1px solid var(--border3)",
                 alignSelf:m.role==="user"?"flex-end":"flex-start"}}>
                 {m.peek&&<span style={{fontSize:8,color:"#3a6040",marginRight:5}}>👁</span>}
                 <Msg text={m.content}/>
@@ -913,14 +995,15 @@ export default function App(){
           </div>}
 
           {/* Input */}
-          <div style={{padding:"7px",borderTop:"1px solid var(--border)",display:"flex",gap:5,flexShrink:0}}>
-            <input value={inp} onChange={e=>setInp(e.target.value)}
-              onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();call(inp);}}}
-              placeholder={revMode?"You're on your own...":"Ask..."}
-              disabled={aiLoad}
-              style={{flex:1,background:"var(--panel2)",border:"1px solid var(--border)",color:"var(--text)",padding:"6px 8px",borderRadius:3,fontSize:11,fontFamily:"inherit",outline:"none"}}/>
+          <div style={{padding:"7px",borderTop:"1px solid var(--border)",display:"flex",gap:5,flexShrink:0,alignItems:"flex-end"}}>
+            <textarea ref={chatInputRef} value={inp}
+              onChange={e=>{setInp(e.target.value);e.target.style.height="auto";e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";}}
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();call(inp);}}}
+              placeholder={revMode?"You're on your own...":"Ask... (Shift+Enter for newline)"}
+              disabled={aiLoad} rows={1}
+              style={{flex:1,background:"var(--panel2)",border:"1px solid var(--border)",color:"var(--text)",padding:"6px 8px",borderRadius:3,fontSize:11,fontFamily:"inherit",outline:"none",resize:"none",lineHeight:1.5,overflow:"hidden",minHeight:30,maxHeight:120}}/>
             <button onClick={()=>call(inp)} disabled={aiLoad||!inp.trim()}
-              style={{padding:"6px 10px",background:inp.trim()&&!aiLoad?"#fbbf24":"var(--border)",border:"none",color:inp.trim()&&!aiLoad?"#000":"var(--text4)",borderRadius:3,fontSize:11,cursor:"pointer",fontWeight:700,transition:"background 0.15s"}}>→</button>
+              style={{padding:"6px 10px",background:inp.trim()&&!aiLoad?"#fbbf24":"var(--border)",border:"none",color:inp.trim()&&!aiLoad?"#000":"var(--text4)",borderRadius:3,fontSize:11,cursor:"pointer",fontWeight:700,transition:"background 0.15s",flexShrink:0,height:30}}>→</button>
           </div>
         </div>
 

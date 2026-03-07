@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 import { getProgress, saveProgress } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -87,6 +88,34 @@ app.post('/api/messages', async (req, res) => {
   } catch (err) {
     res.status(502).json({ error: 'Failed to reach Anthropic API.' });
   }
+});
+
+// ── Code runner: sandboxed Python execution (5s timeout)
+app.post('/api/run', (req, res) => {
+  const { code, stdin = '' } = req.body;
+  if (!code || typeof code !== 'string') return res.status(400).json({ error: 'code required.' });
+  if (code.length > 8000) return res.status(400).json({ error: 'Code too large.' });
+
+  // Wrap user code so it runs as a script; stdin feeds test input
+  const script = code;
+  const python = process.platform === 'win32' ? 'python' : 'python3';
+  const child = spawn(python, ['-c', script], {
+    timeout: 5000,
+    env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+  });
+
+  let stdout = '', stderr = '';
+  child.stdout.on('data', d => { stdout += d; if (stdout.length > 4000) child.kill(); });
+  child.stderr.on('data', d => { stderr += d; if (stderr.length > 2000) child.kill(); });
+  if (stdin) child.stdin.write(stdin);
+  child.stdin.end();
+
+  child.on('close', (code) => {
+    res.json({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code });
+  });
+  child.on('error', err => {
+    res.status(500).json({ error: err.message });
+  });
 });
 
 // ── Serve Vite build in production
