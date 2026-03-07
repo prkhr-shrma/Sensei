@@ -1050,9 +1050,9 @@ export default function App(){
                 e.target.style.height=Math.min(e.target.scrollHeight,120)+"px";
               }}
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();call(inp);}}}
-              placeholder={revMode?"You're on your own...":"Ask... (Shift+Enter for newline)"}
+              placeholder={revMode?"You're on your own...":"Ask Sensei..."}
               disabled={aiLoad} rows={1}
-              style={{flex:1,background:"var(--panel2)",border:"1px solid var(--border)",color:"var(--text)",padding:"6px 8px",borderRadius:3,fontSize:11,fontFamily:"inherit",outline:"none",resize:"none",lineHeight:1.5,overflow:"auto",minHeight:30,maxHeight:120,boxSizing:"border-box"}}/>
+              style={{flex:1,background:"var(--panel2)",border:"1px solid var(--border)",color:"var(--text)",padding:"6px 8px",borderRadius:3,fontSize:11,fontFamily:"inherit",outline:"none",resize:"none",lineHeight:1.5,overflow:"auto",minHeight:34,maxHeight:120,boxSizing:"border-box"}}/>
             <button onClick={()=>call(inp)} disabled={aiLoad||!inp.trim()}
               style={{padding:"6px 10px",background:inp.trim()&&!aiLoad?"#fbbf24":"var(--border)",border:"none",color:inp.trim()&&!aiLoad?"#000":"var(--text4)",borderRadius:3,fontSize:11,cursor:"pointer",fontWeight:700,transition:"background 0.15s",flexShrink:0,height:30}}>→</button>
           </div>
