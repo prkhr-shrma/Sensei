@@ -475,7 +475,7 @@ export default function App(){
       setAiLoad(true);
       try{
         const res=await fetch("/api/messages",{
-          method:"POST",headers:{"Content-Type":"application/json"},
+          method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:40,
             system:buildPrompt(prob,false)+"\n\nLIVE PEEK: student paused. If stuck or barely started, give one tiny nudge or question. If on track, reply exactly: [skip]. Max 1 sentence.",
             messages:peekMsgs})
@@ -523,7 +523,7 @@ export default function App(){
     setAiLoad(true);
     try{
       const res=await fetch("/api/messages",{
-        method:"POST",headers:{"Content-Type":"application/json"},
+        method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:maxTok,
           system:system||buildPrompt(prob,revMode),
           messages:newMsgs.map(m=>({role:m.role,content:m.content}))})
@@ -592,7 +592,7 @@ export default function App(){
     if(!code.trim()||testLoad) return;
     setTestLoad(true);setTestOut(null);
     try{
-      const r=await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,stdin})});
+      const r=await fetch('/api/run',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,stdin})});
       const d=await r.json();
       setTestOut(d);
     }catch(e){setTestOut({stdout:'',stderr:e.message,exitCode:-1});}
