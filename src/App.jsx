@@ -374,6 +374,7 @@ export default function App(){
   const [reviewRejected,setReviewRejected]=useState(false);
   const [dk,setDk]=useState(()=>localStorage.getItem('dk')!=='light');
   const [codeH,setCodeH]=useState(205);
+  const [editorFocus,setEditorFocus]=useState(0);
   const dragRef=useRef(null);
   const [testOpen,setTestOpen]=useState(false);
   const [customIn,setCustomIn]=useState("");
@@ -452,8 +453,6 @@ export default function App(){
     const stripped=code.trim();
     if(stripped===TMPL.trim()||stripped.length<30) return;
     if(stripped===lastPeeked.current.code&&prob.id===lastPeeked.current.pid) return;
-    // Minimum 10-char delta since last peek
-    if(Math.abs(stripped.length-(lastPeeked.current.code?.length||0))<10&&prob.id===lastPeeked.current.pid) return;
     // 60s cooldown between peeks
     if(Date.now()-lastPeekAt.current<60000) return;
     // Max 3 peeks per problem
@@ -502,7 +501,7 @@ export default function App(){
       finally{setAiLoad(false);}
     },5000);
     return()=>{clearTimeout(peekTimer.current);setPeeking(false);};
-  },[code]);
+  },[code,editorFocus]);
 
   useEffect(()=>{
     lastPeeked.current={code:"",pid:prob.id};
@@ -937,6 +936,7 @@ export default function App(){
               </span>
             </div>
             <textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false}
+              onFocus={()=>setEditorFocus(n=>n+1)}
               onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();const s=e.target.selectionStart,en=e.target.selectionEnd;const next=code.substring(0,s)+'    '+code.substring(en);setCode(next);requestAnimationFrame(()=>{e.target.selectionStart=e.target.selectionEnd=s+4;});}}}
               style={{flex:1,background:revMode?"#08080e":"var(--code)",color:"var(--codetext)",fontFamily:"'JetBrains Mono',monospace",fontSize:12.5,padding:"9px 12px",border:"none",outline:"none",resize:"none",lineHeight:1.6}}/>
           </div>
