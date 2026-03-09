@@ -26,3 +26,6 @@ jobs:
         env:
           NODE_ENV: test
           ANTHROPIC_API_KEY: test-key-ci
+          GITHUB_CLIENT_ID: test-client-id
+          GITHUB_CLIENT_SECRET: test-client-secret
+          SESSION_SECRET: test-session-secret
