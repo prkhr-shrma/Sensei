@@ -29,7 +29,7 @@ Mastering these 75 problems gives you coverage of ~90% of interview questions at
 
 - **GitHub SSO**: sign in with GitHub — per-user progress, no passwords
 - **All 75 problems** with optimal solutions (NeetCode-curated), each tagged with pattern and difficulty
-- **Live AI coaching**: Sensei watches your code after 5s of inactivity and nudges you if you're stuck
+- **Live AI coaching**: Sensei watches whenever your cursor is in the editor (5s inactivity check); re-nudges every 10s if a question goes unanswered
 - **Socratic method**: hints and reviews guide you toward the answer — never just give it away
 - **AI-gated submissions**: solution only marked solved after Claude verifies it with ✓
 - **Test case runner**: run your code against custom inputs directly in the browser
@@ -75,6 +75,7 @@ The API key stays in `.env` — never bundled, never in the browser, never commi
 
 - API key is server-side only (never reaches the browser)
 - All API routes require GitHub session authentication
+- **Sessions persist across server restarts** via SQLite-backed session store (no in-memory loss)
 - Rate limiting: 60 req/min per IP
 - Helmet security headers on all responses
 - Body size capped at 16 KB
