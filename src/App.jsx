@@ -375,6 +375,7 @@ export default function App(){
   const [dk,setDk]=useState(()=>localStorage.getItem('dk')!=='light');
   const [codeH,setCodeH]=useState(205);
   const [editorFocus,setEditorFocus]=useState(0);
+  const [peekTrigger,setPeekTrigger]=useState(0);
   const dragRef=useRef(null);
   const [testOpen,setTestOpen]=useState(false);
   const [customIn,setCustomIn]=useState("");
@@ -390,6 +391,7 @@ export default function App(){
   const codeRef=useRef(code);
   const lastPeekAt=useRef(0);
   const peekCount=useRef({pid:null,n:0});
+  const nudgeTimerRef=useRef(null);
   const lastChatAt=useRef(0);
   const TMPL="# Write your solution here\n\ndef solution():\n    pass\n";
 
@@ -453,8 +455,11 @@ export default function App(){
     const stripped=code.trim();
     if(stripped===TMPL.trim()||stripped.length<30) return;
     if(stripped===lastPeeked.current.code&&prob.id===lastPeeked.current.pid) return;
-    // 60s cooldown between peeks
-    if(Date.now()-lastPeekAt.current<60000) return;
+    // Shorter cooldown if last msg was an unanswered peek
+    const lastMsg=msgs[msgs.length-1];
+    const hasUnansweredPeek=lastMsg?.peek&&lastMsg?.role==='assistant';
+    const cooldown=hasUnansweredPeek?10000:60000;
+    if(Date.now()-lastPeekAt.current<cooldown) return;
     // Max 3 peeks per problem
     if(peekCount.current.pid===prob.id&&peekCount.current.n>=3) return;
     clearTimeout(peekTimer.current);
@@ -484,16 +489,16 @@ export default function App(){
         if(reply&&reply.trim()!=="[skip]"){
           setMsgs(p=>[...p,{role:"assistant",content:reply,peek:true}]);
           requestAnimationFrame(()=>chatInputRef.current?.focus());
+          // Schedule a follow-up nudge after 10s if the student doesn't respond
+          clearTimeout(nudgeTimerRef.current);
+          nudgeTimerRef.current=setTimeout(()=>setPeekTrigger(n=>n+1),10000);
           const codeAtNudge=stripped;
           shutoffTimer.current=setTimeout(()=>{
             // Stay alive if user has been chatting in the last 5 min
             if(codeRef.current.trim()===codeAtNudge&&Date.now()-lastChatAt.current>5*60*1000){
+              clearTimeout(nudgeTimerRef.current);
               setPeekOn(false);
-              setMsgs(p=>{
-                if(p[p.length-1]?.role==="assistant")
-                  return [...p,{role:"assistant",content:"Switching off for now — tap 👁 to turn me back on."}];
-                return p;
-              });
+              setMsgs(p=>[...p,{role:"assistant",content:"Looks like you're away or thinking — take your time. Tap 👁 to turn me back on."}]);
             }
           },5*60*1000);
         }
@@ -501,13 +506,13 @@ export default function App(){
       finally{setAiLoad(false);}
     },5000);
     return()=>{clearTimeout(peekTimer.current);setPeeking(false);};
-  },[code,editorFocus]);
+  },[code,editorFocus,peekTrigger]);
 
   useEffect(()=>{
     lastPeeked.current={code:"",pid:prob.id};
     lastPeekAt.current=0;
     peekCount.current={pid:prob.id,n:0};
-    clearTimeout(peekTimer.current);setPeeking(false);
+    clearTimeout(peekTimer.current);clearTimeout(nudgeTimerRef.current);setPeeking(false);
   },[prob.id]);
 
   // ── AI CALL ──
@@ -515,6 +520,7 @@ export default function App(){
     if(!text.trim()&&!withCode) return;
     lastChatAt.current=Date.now();
     clearTimeout(shutoffTimer.current);
+    clearTimeout(nudgeTimerRef.current);
     const full=withCode?`${text}\n\nMy code:\n\`\`\`python\n${code}\n\`\`\``:text;
     const newMsgs=[...msgs,{role:"user",content:full}];
     setMsgs(newMsgs);setInp("");
@@ -552,6 +558,7 @@ export default function App(){
   // ── SELECT PROBLEM ──
   const selectProb=(p)=>{
     if(revMode){setRevMode(false);setRevRunning(false);clearInterval(revInterval.current);}
+    clearTimeout(nudgeTimerRef.current);
     setProb(p);setCode(TMPL);setShowSol(false);setTab("desc");setPendingReview(false);setReviewRejected(false);setTestOut(null);setCustomIn("");
     setAttempted(prev=>new Set([...prev,p.id]));
     setMsgs([{role:"assistant",content:`**${p.title}**. What's your brute force?`}]);
@@ -559,6 +566,7 @@ export default function App(){
 
   // ── START REVISION ──
   const startRevision=(p)=>{
+    clearTimeout(nudgeTimerRef.current);
     setProb(p);setRevMode(true);setRevSecs(20*60);setRevRunning(true);
     setCode("# REVISION — no hints. Solve from memory.\n\ndef solution():\n    pass\n");
     setShowSol(false);setTab("desc");setView("practice");
