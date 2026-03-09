@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { XPV, REV_THRESHOLD, getConfidence, fluencyColor, fluencyLabel, buildPrompt, todayKey, dayType, dayName } from './utils.js';
+import CodeMirror from '@uiw/react-codemirror';
+import { python } from '@codemirror/lang-python';
+import { githubDark, githubLight } from '@uiw/codemirror-theme-github';
 
 // ─────────────────────────────────────────────────────────────
 // PROBLEM DATA (75 problems with optimal solutions)
@@ -366,17 +369,15 @@ export default function App(){
   const [tab,setTab]=useState("desc");
   const [showSol,setShowSol]=useState(false);
   const [cats,setCats]=useState(new Set(["Array"]));
-  const [sb,setSb]=useState(true);
+  const [drawerOpen,setDrawerOpen]=useState(false);
   const [view,setView]=useState("practice");
   const [peekOn,setPeekOn]=useState(true);
   const [peeking,setPeeking]=useState(false);
   const [pendingReview,setPendingReview]=useState(false);
   const [reviewRejected,setReviewRejected]=useState(false);
   const [dk,setDk]=useState(()=>localStorage.getItem('dk')!=='light');
-  const [codeH,setCodeH]=useState(205);
   const [editorFocus,setEditorFocus]=useState(0);
   const [peekTrigger,setPeekTrigger]=useState(0);
-  const dragRef=useRef(null);
   const [testOpen,setTestOpen]=useState(false);
   const [customIn,setCustomIn]=useState("");
   const [testOut,setTestOut]=useState(null);
@@ -676,25 +677,55 @@ export default function App(){
       "--btn-border":dk?"#1e3050":"#b0c0d8","--chat-peek-bg":dk?"#0a1a10":"#e8f4ec",
       "--chat-peek-color":dk?"#6ab88a":"#1a6a3a","--chat-peek-border":dk?"#1a3020":"#b0d8c0",
       "--chat-user-color":dk?"#5a8ab0":"#1a4a6a","--chat-msg-color":dk?"#8aa0b8":"#2a4060",
-      display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"'JetBrains Mono','Fira Mono',monospace",overflow:"hidden"}}>
+      display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"'JetBrains Mono','Fira Mono',monospace",overflow:"hidden",position:"relative"}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
-        *{box-sizing:border-box;}
-        ::-webkit-scrollbar{width:4px;height:4px;}
-        ::-webkit-scrollbar-track{background:var(--deep);}
-        ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-        @keyframes warn{0%,100%{color:#f87171}50%{color:#fbbf24}}
-        @keyframes fire{0%{background-position:0% 50%}100%{background-position:200% 50%}}
-        .fire-text{background:linear-gradient(90deg,#fde68a,#fbbf24,#f97316,#ef4444,#f97316,#fbbf24,#fde68a);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:fire 2s linear infinite;}
+        @keyframes warn{0%,100%{opacity:1}50%{opacity:0.5}}
+        .fire-text{background:linear-gradient(90deg,#fde68a,#fbbf24,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
       `}</style>
 
+      {/* ── DRAWER BACKDROP ── */}
+      {drawerOpen&&<div style={{position:"fixed",inset:0,zIndex:190,background:"rgba(0,0,0,0.4)"}} onClick={()=>setDrawerOpen(false)}/>}
+
+      {/* ── DRAWER PANEL ── */}
+      <div style={{position:"fixed",top:0,left:0,height:"100%",width:280,zIndex:200,transform:drawerOpen?"translateX(0)":"translateX(-100%)",transition:"transform 0.25s ease",background:"var(--panel)",borderRight:"1px solid var(--border)",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"12px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid var(--border)",flexShrink:0}}>
+          <span style={{fontSize:11,fontWeight:700,color:"var(--text)"}}>Problems</span>
+          <button onClick={()=>setDrawerOpen(false)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:14}}>✕</button>
+        </div>
+        <div style={{flex:1,overflowY:"auto",paddingBottom:16}}>
+          {CATS.map(cat=>{
+            const cPs=P.filter(p=>p.cat===cat);
+            const cS=cPs.filter(p=>solved.has(p.id)).length;
+            const open=cats.has(cat);
+            return <div key={cat}>
+              <div onClick={()=>setCats(prev=>{const n=new Set(prev);n.has(cat)?n.delete(cat):n.add(cat);return n;})}
+                style={{padding:"7px 12px",fontSize:"9px",fontWeight:700,letterSpacing:"0.8px",color:"var(--text4)",cursor:"pointer",display:"flex",justifyContent:"space-between",userSelect:"none",borderTop:"1px solid var(--border2)"}}>
+                <span>{cat.toUpperCase()}</span>
+                <span style={{color:cS===cPs.length&&cPs.length>0?"#4ade80":"var(--border)"}}>{cS}/{cPs.length} {open?"▾":"▸"}</span>
+              </div>
+              {open&&cPs.map(p=>{
+                const isSel=prob.id===p.id,isSolv=solved.has(p.id),isAtt=attempted.has(p.id);
+                const c=conf(p.id);
+                const fc=fluencyColor(c);
+                return <div key={p.id} onClick={()=>{selectProb(p);setDrawerOpen(false);}}
+                  style={{padding:"4px 10px 4px 13px",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",gap:5,background:isSel?"rgba(251,191,36,0.06)":"transparent",borderLeft:isSel?"2px solid #fbbf24":"2px solid transparent",color:isSel?"#fbbf24":isSolv?"#4ade80":isAtt?"var(--text2)":"var(--text4)"}}>
+                  <span style={{fontSize:9,flexShrink:0,color:isSolv?"#4ade80":isAtt?"#fb923c":"var(--border)"}}>{isSolv?"✓":isAtt?"◐":"○"}</span>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,fontSize:9.5}}>{p.title}</span>
+                  {isSolv&&fc&&<div style={{width:5,height:5,borderRadius:"50%",background:fc,flexShrink:0,boxShadow:`0 0 3px ${fc}`}}/>}
+                  <span style={{fontSize:8,color:DC[p.diff],flexShrink:0}}>{p.diff[0]}</span>
+                </div>;
+              })}
+            </div>;
+          })}
+        </div>
+      </div>
+
       {/* ── HEADER ── */}
-      <div style={{background:"var(--panel)",borderBottom:"1px solid var(--border)",height:44,display:"flex",alignItems:"center",padding:"0 14px",gap:12,flexShrink:0}}>
-        <button onClick={()=>setSb(p=>!p)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:13}}>☰</button>
+      <div style={{background:"var(--panel)",borderBottom:"1px solid var(--border)",height:44,display:"flex",alignItems:"center",padding:"0 14px",gap:12,flexShrink:0,zIndex:10}}>
+        <button onClick={()=>setDrawerOpen(true)} style={{background:"none",border:"none",color:"var(--text3)",cursor:"pointer",fontSize:13}}>☰</button>
         <span className="fire-text" style={{fontSize:18,fontWeight:700,letterSpacing:-0.5}}>⚔ Sensei</span>
-        <span style={{fontSize:10,color:"var(--text3)",marginLeft:4}}>(A)live DSA Coach</span>
+        {view==='practice'&&<span style={{fontSize:10,color:"var(--text3)",marginLeft:4}}>{prob.title}</span>}
 
         {revMode?(
           <div style={{display:"flex",alignItems:"center",gap:8,background:"#1a0a0a",border:"1px solid #5a1010",borderRadius:4,padding:"3px 10px"}}>
@@ -728,7 +759,6 @@ export default function App(){
               : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             }
           </button>
-          {/* User avatar + logout */}
           <div style={{display:"flex",alignItems:"center",gap:7,borderLeft:"1px solid var(--border)",paddingLeft:12}}>
             {user.avatarUrl&&<img src={user.avatarUrl} alt={user.username} style={{width:22,height:22,borderRadius:"50%",border:"1px solid var(--border)"}}/>}
             <span style={{fontSize:9,color:"var(--text3)"}}>{user.username}</span>
@@ -766,7 +796,7 @@ export default function App(){
             <div style={{marginTop:8,fontSize:9,color:"var(--text4)"}}>Mon–Fri: 3 problems · Sat–Sun: revision</div>
           </div>
 
-          {/* REVISION QUEUE */}
+          {/* Revision queue */}
           <div style={{background:"var(--deep)",border:`1px solid ${dueProblems.length>0?"#3a1010":"var(--border)"}`,borderRadius:8,padding:14,minWidth:240}}>
             <div style={{fontSize:10,color:dueProblems.length>0?"#f87171":"var(--text3)",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
               <span>📖 REVISION QUEUE</span>
@@ -774,9 +804,7 @@ export default function App(){
             </div>
             {revQueue.length===0&&<div style={{fontSize:10,color:"var(--text4)"}}>Solve some problems first.</div>}
             {revQueue.slice(0,8).map(p=>{
-              const c=conf(p.id);
-              const fc=fluencyColor(c);
-              const fl=fluencyLabel(c);
+              const c=conf(p.id);const fc=fluencyColor(c);const fl=fluencyLabel(c);
               return <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid var(--border2)",cursor:"pointer"}} onClick={()=>startRevision(p)}>
                 <div style={{width:7,height:7,borderRadius:"50%",background:fc,flexShrink:0,boxShadow:fl==='due'?`0 0 5px ${fc}`:"none"}}/>
                 <span style={{flex:1,fontSize:10,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.title}</span>
@@ -832,68 +860,37 @@ export default function App(){
           </div>}
         </div>
       ):(
-      /* ── PRACTICE VIEW ── */
+      /* ── PRACTICE VIEW — 3-PANEL ── */
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
 
-        {/* ── SIDEBAR ── */}
-        <div style={{width:sb?195:0,background:"var(--sidebar)",borderRight:"1px solid var(--border)",overflow:"hidden",transition:"width 0.2s",flexShrink:0}}>
-          <div style={{width:195,height:"100%",overflowY:"auto",paddingBottom:16}}>
-            {CATS.map(cat=>{
-              const cPs=P.filter(p=>p.cat===cat);
-              const cS=cPs.filter(p=>solved.has(p.id)).length;
-              const open=cats.has(cat);
-              return <div key={cat}>
-                <div onClick={()=>setCats(prev=>{const n=new Set(prev);n.has(cat)?n.delete(cat):n.add(cat);return n;})}
-                  style={{padding:"7px 12px",fontSize:"9px",fontWeight:700,letterSpacing:"0.8px",color:"var(--text4)",cursor:"pointer",display:"flex",justifyContent:"space-between",userSelect:"none",borderTop:"1px solid var(--border2)"}}>
-                  <span>{cat.toUpperCase()}</span>
-                  <span style={{color:cS===cPs.length&&cPs.length>0?"#4ade80":"var(--border)"}}>{cS}/{cPs.length} {open?"▾":"▸"}</span>
-                </div>
-                {open&&cPs.map(p=>{
-                  const isSel=prob.id===p.id,isSolv=solved.has(p.id),isAtt=attempted.has(p.id);
-                  const c=conf(p.id);
-                  const fc=fluencyColor(c);
-                  return <div key={p.id} onClick={()=>selectProb(p)}
-                    style={{padding:"4px 10px 4px 13px",fontSize:10,cursor:"pointer",display:"flex",alignItems:"center",gap:5,background:isSel?"rgba(251,191,36,0.06)":"transparent",borderLeft:isSel?"2px solid #fbbf24":"2px solid transparent",color:isSel?"#fbbf24":isSolv?"#4ade80":isAtt?"var(--text2)":"var(--text4)"}}>
-                    <span style={{fontSize:9,flexShrink:0,color:isSolv?"#4ade80":isAtt?"#fb923c":"var(--border)"}}>{isSolv?"✓":isAtt?"◐":"○"}</span>
-                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,fontSize:9.5}}>{p.title}</span>
-                    {/* Fluency dot */}
-                    {isSolv&&fc&&<div style={{width:5,height:5,borderRadius:"50%",background:fc,flexShrink:0,boxShadow:`0 0 3px ${fc}`}}/>}
-                    <span style={{fontSize:8,color:DC[p.diff],flexShrink:0}}>{p.diff[0]}</span>
-                  </div>;
-                })}
-              </div>;
-            })}
-          </div>
-        </div>
-
-        {/* ── CENTER ── */}
-        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
-
+        {/* ── LEFT PANEL: Problem Description ── */}
+        <div style={{flex:"0 0 38%",display:"flex",flexDirection:"column",borderRight:"1px solid var(--border)",overflow:"hidden",background:"var(--panel)"}}>
           {/* Problem header */}
-          <div style={{padding:"7px 12px",background:"var(--panel)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:8,flexShrink:0,flexWrap:"wrap"}}>
-            <span style={{fontSize:12,fontWeight:600,color:revMode?"#f87171":"var(--text)"}}>{revMode?"⏱ ":""}{prob.title}</span>
-            <span style={{fontSize:9,color:DC[prob.diff],border:`1px solid ${DC[prob.diff]}`,padding:"1px 6px",borderRadius:8}}>{prob.diff}</span>
-            <span style={{fontSize:9,color:"var(--text4)",background:"var(--border2)",padding:"1px 6px",borderRadius:8}}>{prob.pat}</span>
-            {solved.has(prob.id)&&!revMode&&<span style={{fontSize:9,color:"#4ade80"}}>✓</span>}
-            {revMode&&<span style={{fontSize:9,color:"#818cf8",background:"#1a1a30",padding:"1px 8px",borderRadius:8}}>cold solve · no hints</span>}
-            {/* Fluency badge */}
-            {solved.has(prob.id)&&conf(prob.id)!==null&&(
-              <span style={{fontSize:9,color:fluencyColor(conf(prob.id)),background:"var(--deep)",border:`1px solid ${fluencyColor(conf(prob.id))}30`,padding:"1px 7px",borderRadius:8}}>
-                {conf(prob.id)}% {fluencyLabel(conf(prob.id))}
-              </span>
-            )}
-            <a href={`https://leetcode.com/problems/${prob.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}/`} target="_blank" rel="noopener noreferrer" style={{marginLeft:"auto",fontSize:9,color:"var(--text4)",textDecoration:"none"}}>LC#{prob.lc}↗</a>
+          <div style={{padding:"10px 14px",borderBottom:"1px solid var(--border)",flexShrink:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+              <span style={{fontSize:13,fontWeight:700,color:revMode?"#f87171":"var(--text)"}}>{prob.title}</span>
+              <span style={{fontSize:9,color:DC[prob.diff],border:`1px solid ${DC[prob.diff]}`,padding:"1px 6px",borderRadius:8}}>{prob.diff}</span>
+              <span style={{fontSize:9,color:"var(--text4)",background:"var(--border2)",padding:"1px 6px",borderRadius:8}}>{prob.pat}</span>
+              {solved.has(prob.id)&&!revMode&&<span style={{fontSize:9,color:"#4ade80"}}>✓ Solved</span>}
+              {revMode&&<span style={{fontSize:9,color:"#818cf8",background:"#1a1a30",padding:"1px 8px",borderRadius:8}}>cold solve · no hints</span>}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              {solved.has(prob.id)&&conf(prob.id)!==null&&(
+                <span style={{fontSize:9,color:fluencyColor(conf(prob.id)),background:"var(--deep)",border:`1px solid ${fluencyColor(conf(prob.id))}30`,padding:"1px 7px",borderRadius:8}}>
+                  {conf(prob.id)}% {fluencyLabel(conf(prob.id))}
+                </span>
+              )}
+              <a href={`https://leetcode.com/problems/${prob.title.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}/`} target="_blank" rel="noopener noreferrer" style={{fontSize:9,color:"var(--text4)",textDecoration:"none",marginLeft:"auto"}}>LC#{prob.lc}↗</a>
+            </div>
           </div>
-
           {/* Tabs */}
           <div style={{display:"flex",background:"var(--sidebar)",borderBottom:"1px solid var(--border)",flexShrink:0}}>
-            {[["desc","Problem"],["solution","Optimal"+((!solved.has(prob.id)&&!showSol)?" 🔒":"")],["notes","Notes"]].map(([k,label])=>(
-              <button key={k} onClick={()=>setTab(k)} style={{padding:"5px 13px",fontSize:9.5,background:"none",border:"none",borderBottom:tab===k?"2px solid #fbbf24":"2px solid transparent",color:tab===k?"#fbbf24":"var(--text3)",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
+            {[["desc","Description"],["solution","Solution"+((!solved.has(prob.id)&&!showSol)?" 🔒":"")],["notes","Notes"]].map(([k,label])=>(
+              <button key={k} onClick={()=>setTab(k)} style={{padding:"6px 14px",fontSize:10,background:"none",border:"none",borderBottom:tab===k?"2px solid #fbbf24":"2px solid transparent",color:tab===k?"#fbbf24":"var(--text3)",cursor:"pointer",fontFamily:"inherit"}}>{label}</button>
             ))}
           </div>
-
           {/* Content */}
-          <div style={{flex:1,overflowY:"auto",padding:14,fontSize:11.5,lineHeight:1.8,color:"var(--text2)"}}>
+          <div style={{flex:1,overflowY:"auto",padding:16,fontSize:12,lineHeight:1.9,color:"var(--text2)"}}>
             {tab==="desc"&&<pre style={{whiteSpace:"pre-wrap",fontFamily:"inherit",margin:0}}>{prob.desc}</pre>}
             {tab==="solution"&&(
               !solved.has(prob.id)&&!showSol?(
@@ -903,9 +900,9 @@ export default function App(){
                 </div>
               ):(
                 <div>
-                  <div style={{marginBottom:10,padding:"8px 10px",background:"var(--panel)",borderRadius:5,border:"1px solid var(--btn-border)"}}>
+                  <div style={{marginBottom:10,padding:"8px 10px",background:"var(--panel2)",borderRadius:5,border:"1px solid var(--btn-border)"}}>
                     <div style={{fontSize:9,color:"#f59e0b",marginBottom:3,fontWeight:700}}>KEY INSIGHT</div>
-                    <div style={{fontSize:10.5,color:dk?"#7a9ab8":"#2a5070"}}>{prob.note}</div>
+                    <div style={{fontSize:11,color:dk?"#7a9ab8":"#2a5070"}}>{prob.note}</div>
                   </div>
                   <pre style={{background:"var(--code)",border:"1px solid var(--code-border)",borderRadius:5,padding:"10px 12px",fontSize:11.5,overflowX:"auto",lineHeight:1.6,margin:0}}><code style={{color:"var(--codetext)"}}>{prob.sol}</code></pre>
                 </div>
@@ -914,77 +911,77 @@ export default function App(){
             {tab==="notes"&&(
               <textarea value={notes[prob.id]||""} onChange={e=>setNotes(p=>({...p,[prob.id]:e.target.value}))}
                 placeholder={`# ${prob.title}\nKey insight:\nTime: O(?)\nSpace: O(?)`}
-                style={{width:"100%",height:"100%",background:"transparent",border:"none",outline:"none",resize:"none",fontFamily:"inherit",fontSize:11.5,color:"var(--text2)",lineHeight:1.75}}/>
+                style={{width:"100%",height:"100%",background:"transparent",border:"none",outline:"none",resize:"none",fontFamily:"inherit",fontSize:12,color:"var(--text2)",lineHeight:1.75}}/>
             )}
           </div>
+        </div>
 
-          {/* Code editor */}
-          <div style={{height:codeH,display:"flex",flexDirection:"column",borderTop:`1px solid ${revMode?"#3a1010":"var(--border)"}`,flexShrink:0}}>
-            {/* Drag handle */}
-            <div ref={dragRef}
-              onMouseDown={e=>{
-                e.preventDefault();
-                const startY=e.clientY, startH=codeH;
-                const onMove=mv=>{
-                  const delta=startY-mv.clientY;
-                  setCodeH(Math.min(520,Math.max(140,startH+delta)));
-                };
-                const onUp=()=>{window.removeEventListener('mousemove',onMove);window.removeEventListener('mouseup',onUp);};
-                window.addEventListener('mousemove',onMove);
-                window.addEventListener('mouseup',onUp);
-              }}
-              style={{height:6,background:"var(--border2)",cursor:"ns-resize",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}
-            >
-              <div style={{width:28,height:2,borderRadius:1,background:"var(--border)"}}/>
+        {/* ── CENTER PANEL: Code Editor ── */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
+          {/* Editor top bar */}
+          <div style={{padding:"6px 12px",background:"var(--panel)",borderBottom:`1px solid ${revMode?"#3a1010":"var(--border)"}`,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+            <span style={{fontSize:9,color:"var(--text4)"}}>solution.py</span>
+            <span style={{fontSize:9,color:"var(--border)"}}>|</span>
+            <span style={{fontSize:9,color:revMode?"#f87171":peeking?"#fbbf24":"var(--text4)",transition:"color 0.3s"}}>
+              {revMode?`⏱ ${fmtTime(revSecs)}`:peeking?"👁 watching...":"Python 3"}
+            </span>
+            <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
+              {revMode?(
+                <>
+                  <button onClick={markRevSolved} style={{padding:"4px 12px",background:"#fbbf24",border:"none",color:"#000",borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>✓ Submit Revision</button>
+                  <span style={{fontSize:9,color:"var(--text3)"}}>Cold &lt;15m = {REV_XP_MULT}×XP</span>
+                </>
+              ):(
+                <>
+                  <button onClick={submitForReview} disabled={solved.has(prob.id)||pendingReview||reviewRejected}
+                    style={{padding:"4px 10px",
+                      background:solved.has(prob.id)?"var(--border)":reviewRejected?"#2a0a0a":pendingReview?"#1a2a10":"#fbbf24",
+                      border:reviewRejected?"1px solid #f87171":pendingReview?"1px solid #4ade80":"none",
+                      color:solved.has(prob.id)?"var(--text3)":reviewRejected?"#f87171":pendingReview?"#4ade80":"#000",
+                      borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
+                    {solved.has(prob.id)?"✓ Solved":reviewRejected?"❌ Not yet":pendingReview?"⏳ Verifying...":"Submit"}
+                  </button>
+                  <button onClick={()=>call("Review my code.",true,null,300)} style={{padding:"4px 10px",background:"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
+                  <button onClick={()=>call("Hint please.",false,null,120)} style={{padding:"4px 10px",background:"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
+                  <button onClick={()=>setTestOpen(p=>!p)} style={{padding:"4px 10px",background:testOpen?"var(--border2)":"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>▶ Test</button>
+                  {solved.has(prob.id)&&<button onClick={()=>startRevision(prob)} style={{padding:"4px 10px",background:"none",border:`1px solid ${dk?"#2a3a80":"#8090c8"}`,color:"#818cf8",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>📖 Revise</button>}
+                  <div style={{display:"flex",gap:3,marginLeft:4}}>
+                    {Array.from({length:dailyGoal}).map((_,i)=>(
+                      <div key={i} style={{width:7,height:7,borderRadius:"50%",background:i<todayDone.size?"#4ade80":"var(--border)"}}/>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
-            <div style={{padding:"3px 12px",background:"var(--panel)",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-              <span style={{fontSize:8.5,color:"var(--border)"}}>solution.py</span>
-              <span style={{fontSize:8.5,color:revMode?"#f87171":peeking?"#fbbf24":"var(--border)",transition:"color 0.3s"}}>
-                {revMode?`⏱ ${fmtTime(revSecs)}`:peeking?"👁 watching...":"Python 3"}
-              </span>
-            </div>
-            <textarea value={code} onChange={e=>setCode(e.target.value)} spellCheck={false}
+          </div>
+          {/* CodeMirror editor */}
+          <div style={{flex:1,overflow:"hidden",background:revMode?"#08080e":"var(--code)"}}>
+            <CodeMirror
+              value={code}
+              onChange={val=>setCode(val)}
+              extensions={[python()]}
+              theme={dk?githubDark:githubLight}
+              height="100%"
+              style={{height:"100%",fontSize:13}}
               onFocus={()=>setEditorFocus(n=>n+1)}
-              onKeyDown={e=>{if(e.key==='Tab'){e.preventDefault();const s=e.target.selectionStart,en=e.target.selectionEnd;const next=code.substring(0,s)+'    '+code.substring(en);setCode(next);requestAnimationFrame(()=>{e.target.selectionStart=e.target.selectionEnd=s+4;});}}}
-              style={{flex:1,background:revMode?"#08080e":"var(--code)",color:"var(--codetext)",fontFamily:"'JetBrains Mono',monospace",fontSize:12.5,padding:"9px 12px",border:"none",outline:"none",resize:"none",lineHeight:1.6}}/>
+              basicSetup={{
+                lineNumbers:true,
+                foldGutter:false,
+                dropCursor:false,
+                allowMultipleSelections:false,
+                indentOnInput:true,
+                highlightActiveLine:true,
+                highlightSelectionMatches:false,
+              }}
+            />
           </div>
-
-          {/* Action bar */}
-          <div style={{padding:"6px 12px",background:"var(--panel)",display:"flex",gap:7,borderTop:"1px solid var(--border)",flexShrink:0,alignItems:"center"}}>
-            {revMode?(
-              <>
-                <button onClick={markRevSolved} style={{padding:"5px 14px",background:"#fbbf24",border:"none",color:"#000",borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>✓ Submit Revision</button>
-                <span style={{fontSize:9,color:"var(--text3)"}}>Cold solve &lt;15min = {REV_XP_MULT}× XP</span>
-              </>
-            ):(
-              <>
-                <button onClick={submitForReview} disabled={solved.has(prob.id)||pendingReview||reviewRejected}
-                  style={{padding:"5px 12px",
-                    background:solved.has(prob.id)?"var(--border)":reviewRejected?"#2a0a0a":pendingReview?"#1a2a10":"#fbbf24",
-                    border:reviewRejected?"1px solid #f87171":pendingReview?"1px solid #4ade80":"none",
-                    color:solved.has(prob.id)?"var(--text3)":reviewRejected?"#f87171":pendingReview?"#4ade80":"#000",
-                    borderRadius:3,fontSize:10,cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>
-                  {solved.has(prob.id)?"✓ Solved":reviewRejected?"❌ Not yet":pendingReview?"⏳ Verifying...":"Submit"}
-                </button>
-                <button onClick={()=>call("Review my code.",true,null,300)} style={{padding:"5px 10px",background:"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Review</button>
-                <button onClick={()=>call("Hint please.",false,null,120)} style={{padding:"5px 10px",background:"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>Hint</button>
-                <button onClick={()=>setTestOpen(p=>!p)} style={{padding:"5px 10px",background:testOpen?"var(--border2)":"none",border:"1px solid var(--btn-border)",color:"var(--text3)",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>▶ Test</button>
-                {solved.has(prob.id)&&<button onClick={()=>startRevision(prob)} style={{padding:"5px 10px",background:"none",border:`1px solid ${dk?"#2a3a80":"#8090c8"}`,color:"#818cf8",borderRadius:3,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>📖 Revise</button>}
-              </>
-            )}
-            <div style={{marginLeft:"auto",display:"flex",gap:4}}>
-              {Array.from({length:dailyGoal}).map((_,i)=>(
-                <div key={i} style={{width:8,height:8,borderRadius:"50%",background:i<todayDone.size?"#4ade80":"var(--border)"}}/>
-              ))}
-            </div>
-          </div>
-
-          {/* ── TEST PANEL ── */}
+          {/* Test panel */}
           {testOpen&&!revMode&&(
-            <div style={{borderTop:"1px solid var(--border)",background:"var(--panel2)",padding:"8px 12px",flexShrink:0}}>
+            <div style={{borderTop:"1px solid var(--border)",background:"var(--panel2)",padding:"8px 12px",flexShrink:0,maxHeight:200,overflowY:"auto"}}>
               <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
                 <span style={{fontSize:9,color:"var(--text3)",fontWeight:700}}>CUSTOM INPUT</span>
                 <span style={{fontSize:8,color:"var(--text4)"}}>(stdin — your code reads via input())</span>
+                <button onClick={()=>setTestOpen(false)} style={{marginLeft:"auto",background:"none",border:"none",color:"var(--text4)",cursor:"pointer",fontSize:14,lineHeight:1}}>✕</button>
               </div>
               <div style={{display:"flex",gap:6,marginBottom:6}}>
                 <textarea value={customIn} onChange={e=>setCustomIn(e.target.value)} rows={2}
@@ -1012,9 +1009,8 @@ export default function App(){
           )}
         </div>
 
-        {/* ── CHAT ── */}
-        <div style={{width:265,display:"flex",flexDirection:"column",borderLeft:`1px solid ${revMode?"#3a1010":"var(--border)"}`,background:revMode?"#070408":"var(--chat)",flexShrink:0}}>
-
+        {/* ── RIGHT PANEL: Sensei Chat ── */}
+        <div style={{width:300,display:"flex",flexDirection:"column",borderLeft:`1px solid ${revMode?"#3a1010":"var(--border)"}`,background:revMode?"#070408":"var(--chat)",flexShrink:0}}>
           {/* Chat header */}
           <div style={{padding:"7px 12px",background:"var(--panel)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
             <span style={{width:5,height:5,borderRadius:"50%",background:revMode?"#818cf8":peeking?"#fbbf24":"#4ade80",display:"inline-block",boxShadow:peeking?"0 0 6px #fbbf24":"none",transition:"all 0.3s"}}/>
@@ -1024,14 +1020,10 @@ export default function App(){
               {peekOn?"👁 on":"👁 off"}
             </button>}
           </div>
-
-          {/* Revision mode notice */}
           {revMode&&<div style={{padding:"8px 12px",background:"#0a0820",borderBottom:"1px solid #1a1030",fontSize:10,color:"#3a3060",lineHeight:1.5}}>
             Sensei is quiet. You're on your own. Prove you know it cold.<br/>
             <span style={{color:"#1a1040"}}>Ask a question → "You're on your own."</span>
           </div>}
-
-          {/* Messages */}
           <div style={{flex:1,overflowY:"auto",padding:"8px 7px",display:"flex",flexDirection:"column",gap:7}}>
             {msgs.map((m,i)=>(
               <div key={i} style={{padding:"6px 8px",borderRadius:5,fontSize:11.5,lineHeight:1.6,maxWidth:"96%",
@@ -1046,16 +1038,12 @@ export default function App(){
             {aiLoad&&<div style={{padding:"6px 8px",borderRadius:5,fontSize:11,background:"var(--chatmsg)",border:"1px solid var(--border3)",alignSelf:"flex-start",color:"var(--text3)",animation:"blink 1.2s infinite"}}>...</div>}
             <div ref={chatRef}/>
           </div>
-
-          {/* Quick actions */}
           {!revMode&&<div style={{padding:"4px 7px",borderTop:"1px solid var(--border)",display:"flex",flexWrap:"wrap",gap:3}}>
             {[["Hint","Hint please.",120],["Complexity?","Target complexity?",100],["Edge cases?","What edge cases?",100],["Pattern?","What's the pattern?",100]].map(([l,m,t])=>(
               <button key={l} onClick={()=>call(m,false,null,t)} disabled={aiLoad}
                 style={{padding:"3px 7px",background:"var(--panel2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
             ))}
           </div>}
-
-          {/* Input */}
           <div style={{padding:"7px",borderTop:"1px solid var(--border)",display:"flex",gap:5,flexShrink:0,alignItems:"flex-end"}}>
             <textarea ref={chatInputRef} value={inp}
               onChange={e=>{
@@ -1074,6 +1062,7 @@ export default function App(){
 
       </div>
       )}
+
     </div>
   );
 }
