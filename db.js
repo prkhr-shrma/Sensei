@@ -30,7 +30,50 @@ db.exec(`
     avatar_url TEXT,
     created_at INTEGER DEFAULT (strftime('%s','now'))
   );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    sid     TEXT    PRIMARY KEY,
+    sess    TEXT    NOT NULL,
+    expired INTEGER NOT NULL
+  );
 `);
+
+// ── SQLite session store (persists across restarts) ──────────
+
+export function createSessionStore(session) {
+  const Store = session.Store;
+  class SQLiteStore extends Store {
+    get(sid, cb) {
+      const row = db.prepare('SELECT sess, expired FROM sessions WHERE sid = ?').get(sid);
+      if (!row) return cb(null, null);
+      if (Date.now() > row.expired) { this.destroy(sid, () => {}); return cb(null, null); }
+      try { cb(null, JSON.parse(row.sess)); } catch (e) { cb(e); }
+    }
+    set(sid, sess, cb) {
+      const maxAge = sess.cookie?.maxAge ?? 30 * 24 * 60 * 60 * 1000;
+      db.prepare(
+        'INSERT INTO sessions (sid, sess, expired) VALUES (?, ?, ?) ON CONFLICT(sid) DO UPDATE SET sess=excluded.sess, expired=excluded.expired'
+      ).run(sid, JSON.stringify(sess), Date.now() + maxAge);
+      cb(null);
+    }
+    destroy(sid, cb) {
+      db.prepare('DELETE FROM sessions WHERE sid = ?').run(sid);
+      cb(null);
+    }
+    touch(sid, sess, cb) {
+      const maxAge = sess.cookie?.maxAge ?? 30 * 24 * 60 * 60 * 1000;
+      db.prepare('UPDATE sessions SET expired = ? WHERE sid = ?').run(Date.now() + maxAge, sid);
+      cb(null);
+    }
+    // Prune expired sessions on startup
+    prune() {
+      db.prepare('DELETE FROM sessions WHERE expired < ?').run(Date.now());
+    }
+  }
+  const store = new SQLiteStore();
+  store.prune();
+  return store;
+}
 
 // ── Progress (per-user) ───────────────────────────────────────
 
