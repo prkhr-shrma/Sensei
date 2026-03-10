@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sensei — AI-Powered DSA Coach</title>
+  <meta name="description" content="Master the Blind 75 with live AI hints, spaced repetition, and AI-verified solutions powered by Claude."/>
+  <meta property="og:title" content="Sensei — AI-Powered DSA Coach"/>
+  <meta property="og:description" content="Master the Blind 75 with live AI hints, spaced repetition, and AI-verified solutions powered by Claude."/>
+  <meta property="og:image" content="https://prkhr-shrma.github.io/Sensei/preview.png"/>
+  <meta name="theme-color" content="#070b12"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #070b12;
+      --panel: #0a1020;
+      --border: #1a2a40;
+      --text: #dde4ef;
+      --text2: #5a7090;
+      --text3: #2a4060;
+      --accent: #fbbf24;
+      --accent2: #f97316;
+      --green: #4ade80;
+      --purple: #818cf8;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', 'Fira Mono', 'Cascadia Code', monospace;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(7,11,18,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-size: 17px; font-weight: 700; letter-spacing: -0.5px;
+      background: linear-gradient(90deg,#fde68a,#fbbf24,#f97316);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-decoration: none;
+    }
+    .nav-links { display: flex; align-items: center; gap: 24px; }
+    .nav-links a {
+      font-size: 11px; color: var(--text2); text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      padding: 7px 18px;
+      background: var(--accent); color: #000;
+      font-size: 11px; font-weight: 700; font-family: inherit;
+      border: none; border-radius: 4px; cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .nav-cta:hover { opacity: 0.85; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 80px 24px 60px;
+      text-align: center;
+      position: relative;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 50% 20%, rgba(251,191,36,0.06) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 30% at 80% 80%, rgba(129,140,248,0.04) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px;
+      background: rgba(251,191,36,0.08);
+      border: 1px solid rgba(251,191,36,0.2);
+      border-radius: 20px;
+      font-size: 10px; color: var(--accent);
+      margin-bottom: 28px;
+      letter-spacing: 0.5px;
+    }
+    .hero h1 {
+      font-size: clamp(42px, 8vw, 80px);
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1.05;
+      background: linear-gradient(160deg, #ffffff 0%, #fbbf24 40%, #f97316 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 20px;
+    }
+    .hero-sub {
+      font-size: clamp(13px, 2vw, 16px);
+      color: var(--text2);
+      max-width: 480px;
+      line-height: 1.8;
+      margin-bottom: 40px;
+    }
+    .hero-sub em { color: var(--text); font-style: normal; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .btn-primary {
+      padding: 13px 32px;
+      background: var(--accent); color: #000;
+      font-size: 13px; font-weight: 700; font-family: inherit;
+      border: none; border-radius: 5px; cursor: pointer;
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.15s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-secondary {
+      padding: 13px 32px;
+      background: transparent; color: var(--text2);
+      font-size: 13px; font-family: inherit;
+      border: 1px solid var(--border); border-radius: 5px; cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-secondary:hover { border-color: var(--text3); color: var(--text); }
+    .hero-note {
+      margin-top: 20px;
+      font-size: 10px; color: var(--text3);
+    }
+
+    /* ── EDITOR PREVIEW ── */
+    .preview-wrap {
+      width: 100%; max-width: 900px;
+      margin: 64px auto 0;
+      position: relative;
+    }
+    .preview-bar {
+      background: #0a1020;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-r { background: #f87171; }
+    .dot-y { background: #fbbf24; }
+    .dot-g { background: #4ade80; }
+    .preview-tabs {
+      margin-left: 12px;
+      display: flex; gap: 2px;
+    }
+    .tab {
+      padding: 3px 12px;
+      font-size: 10px;
+      border-radius: 3px 3px 0 0;
+      color: var(--text2);
+    }
+    .tab.active { background: #040912; color: var(--accent); }
+    .preview-body {
+      background: #040912;
+      border: 1px solid var(--border);
+      border-radius: 0 0 8px 8px;
+      padding: 20px 24px;
+      font-size: 12px; line-height: 1.8;
+      text-align: left;
+      overflow-x: auto;
+    }
+    .ln { color: #2a4060; user-select: none; margin-right: 20px; display: inline-block; width: 18px; text-align: right; }
+    .kw { color: #c792ea; }
+    .fn { color: #82aaff; }
+    .cm { color: #3a5070; font-style: italic; }
+    .st { color: #c3e88d; }
+    .nm { color: #f78c6c; }
+    .peek-bubble {
+      position: absolute; bottom: -18px; right: 20px;
+      background: #0a1a10;
+      border: 1px solid #1a3020;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 10.5px;
+      color: #6ab88a;
+      display: flex; align-items: center; gap: 6px;
+      white-space: nowrap;
+    }
+    .peek-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #fbbf24;
+      animation: blink 1.2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    /* ── FEATURES ── */
+    section { padding: 96px 24px; }
+    .section-label {
+      text-align: center;
+      font-size: 10px; letter-spacing: 2px; color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      text-align: center;
+      font-size: clamp(24px, 4vw, 36px);
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
+    }
+    .section-sub {
+      text-align: center;
+      font-size: 13px; color: var(--text2);
+      max-width: 480px; margin: 0 auto 56px;
+      line-height: 1.8;
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .feature-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .feature-card:hover { border-color: #2a3a50; }
+    .feature-icon { font-size: 22px; margin-bottom: 14px; }
+    .feature-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+    .feature-desc { font-size: 11px; color: var(--text2); line-height: 1.8; }
+
+    /* ── STATS ── */
+    .stats-wrap {
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stats {
+      max-width: 720px; margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 0;
+    }
+    .stat {
+      padding: 48px 24px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-num {
+      font-size: 40px; font-weight: 700;
+      background: linear-gradient(90deg,#fbbf24,#f97316);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+    }
+    .stat-label { font-size: 10px; color: var(--text3); margin-top: 6px; letter-spacing: 0.5px; }
+
+    /* ── HOW IT WORKS ── */
+    .steps {
+      max-width: 640px; margin: 0 auto;
+      display: flex; flex-direction: column; gap: 0;
+    }
+    .step {
+      display: flex; gap: 24px; align-items: flex-start;
+      padding: 28px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step:last-child { border-bottom: none; }
+    .step-num {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(251,191,36,0.1);
+      border: 1px solid rgba(251,191,36,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: var(--accent);
+      flex-shrink: 0;
+    }
+    .step-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .step-desc { font-size: 11px; color: var(--text2); line-height: 1.8; }
+
+    /* ── CTA ── */
+    .cta-section {
+      text-align: center;
+      padding: 96px 24px;
+      position: relative;
+    }
+    .cta-section::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 50% 60% at 50% 50%, rgba(251,191,36,0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-section h2 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .cta-section p {
+      font-size: 13px; color: var(--text2);
+      max-width: 400px; margin: 0 auto 36px;
+      line-height: 1.8;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 10px; color: var(--text3);
+    }
+    footer a { color: var(--text3); text-decoration: none; }
+    footer a:hover { color: var(--text2); }
+
+    @media (max-width: 600px) {
+      nav { padding: 0 16px; }
+      .nav-links { display: none; }
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .stat { border-right: none; border-bottom: 1px solid var(--border); }
+      .stat:nth-child(even) { border-right: none; }
+      footer { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-logo" href="#">⚔ Sensei</a>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="https://github.com/prkhr-shrma/Sensei" target="_blank" rel="noopener">GitHub</a>
+    <a class="nav-cta" href="https://sensei-production-9bed.up.railway.app/" target="_blank" rel="noopener">Launch App →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <span style="color:#fbbf24">✦</span> Powered by Claude Sonnet 4.6
+  </div>
+  <h1>Your AI Coach<br/>for Blind 75</h1>
+  <p class="hero-sub">
+    Live hints while you code. <em>Spaced repetition</em> that actually works.
+    AI-verified solutions so you know when you've truly got it.
+  </p>
+  <div class="hero-actions">
+    <a class="btn-primary" href="https://sensei-production-9bed.up.railway.app/" target="_blank" rel="noopener">
+      Start Practicing →
+    </a>
+    <a class="btn-secondary" href="https://github.com/prkhr-shrma/Sensei" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      View Source
+    </a>
+  </div>
+  <p class="hero-note">Free · No setup · Sign in with GitHub</p>
+
+  <!-- Editor preview -->
+  <div class="preview-wrap">
+    <div class="preview-bar">
+      <span class="dot dot-r"></span>
+      <span class="dot dot-y"></span>
+      <span class="dot dot-g"></span>
+      <div class="preview-tabs">
+        <span class="tab active">solution.py</span>
+      </div>
+      <span style="margin-left:auto;font-size:9px;color:#2a4060">Python 3</span>
+    </div>
+    <div class="preview-body">
+      <div><span class="ln">1</span><span class="cm"># Two Sum — find indices of two numbers that add to target</span></div>
+      <div><span class="ln">2</span></div>
+      <div><span class="ln">3</span><span class="kw">def </span><span class="fn">twoSum</span>(nums, target):</div>
+      <div><span class="ln">4</span>&nbsp;&nbsp;&nbsp;&nbsp;seen = {}</div>
+      <div><span class="ln">5</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">for </span>i, n <span class="kw">in </span><span class="fn">enumerate</span>(nums):</div>
+      <div><span class="ln">6</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;diff = target - n</div>
+      <div><span class="ln">7</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">if </span>diff <span class="kw">in </span>seen: <span class="kw">return </span>[seen[diff], i]</div>
+      <div><span class="ln">8</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;seen[n] = i</div>
+    </div>
+    <div class="peek-bubble">
+      <span class="peek-dot"></span>
+      Good start — what's the time complexity here?
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-wrap">
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num">75</div>
+      <div class="stat-label">CURATED PROBLEMS</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">∞</div>
+      <div class="stat-label">AI HINTS</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">SRS</div>
+      <div class="stat-label">SPACED REPETITION</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">0</div>
+      <div class="stat-label">SETUP REQUIRED</div>
+    </div>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section id="features">
+  <p class="section-label">Features</p>
+  <h2 class="section-title">Everything you need to<br/>actually learn DSA</h2>
+  <p class="section-sub">Not just a problem list. A coach that watches you code and steps in at the right moment.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">👁</div>
+      <div class="feature-title">Live Peek</div>
+      <div class="feature-desc">Sensei watches while you type and nudges you when you're stuck — not when you ask. Real coaching, not a hint button.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📖</div>
+      <div class="feature-title">Spaced Repetition</div>
+      <div class="feature-desc">Every solved problem gets a fluency score. Sensei surfaces due problems before your confidence fades, not after you've forgotten.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">✓</div>
+      <div class="feature-title">AI-Verified Solutions</div>
+      <div class="feature-desc">Claude reviews your code for correctness, edge cases, and complexity — not just whether it compiles.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⏱</div>
+      <div class="feature-title">Revision Mode</div>
+      <div class="feature-desc">Cold-solve under the clock. Finish in under 15 min and earn 2× XP. Sensei goes silent — it's just you and the problem.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">Run & Test</div>
+      <div class="feature-desc">Execute your code with custom input right in the browser. Instant stdout/stderr feedback without leaving the editor.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🏆</div>
+      <div class="feature-title">XP & Streaks</div>
+      <div class="feature-desc">Earn XP for every solve. Harder problems, faster revision solves, and daily streaks compound your score.</div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works" style="background:var(--panel);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+  <p class="section-label">How it works</p>
+  <h2 class="section-title">Four steps to fluency</h2>
+  <p class="section-sub">Sensei builds a complete picture of what you know and what needs work.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div>
+        <div class="step-title">Pick a problem</div>
+        <div class="step-desc">Browse all 75 problems by category. Fluency dots show exactly where you're strong and where you're fading.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div>
+        <div class="step-title">Code while Sensei watches</div>
+        <div class="step-desc">Peek mode activates when you start typing. After a pause, Sensei drops a nudge or question — no hand-holding, just the right push.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div>
+        <div class="step-title">Submit for AI review</div>
+        <div class="step-desc">Claude checks your solution for correctness, time/space complexity, and edge cases. Earn XP when it passes.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div>
+        <div class="step-title">Revise before you forget</div>
+        <div class="step-desc">Your dashboard shows overdue problems. Jump into revision mode — Sensei goes silent, you cold-solve under a 20-minute timer.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <h2>Ready to get<br/>interview-ready?</h2>
+  <p>Sign in with GitHub and start your first problem in under a minute. No config, no installation.</p>
+  <a class="btn-primary" href="https://sensei-production-9bed.up.railway.app/" target="_blank" rel="noopener" style="font-size:14px;padding:15px 40px;display:inline-flex">
+    Launch Sensei →
+  </a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <span>⚔ <strong style="color:var(--text2)">Sensei</strong> — Built with Claude Sonnet 4.6</span>
+  <span style="display:flex;gap:20px">
+    <a href="https://github.com/prkhr-shrma/Sensei" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://sensei-production-9bed.up.railway.app/" target="_blank" rel="noopener">App</a>
+    <a href="https://github.com/prkhr-shrma/Sensei/issues" target="_blank" rel="noopener">Issues</a>
+  </span>
+</footer>
+
+</body>
+</html>
