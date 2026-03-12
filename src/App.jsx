@@ -383,6 +383,7 @@ export default function App(){
     return()=>clearInterval(timerRef.current);
   },[timerRunning]);
 
+
   // ── AI CALL ──
   const call=async(text,withCode=false,system=null,maxTok=150)=>{
     if(!text.trim()&&!withCode) return;
