@@ -5,3 +5,5 @@ dist
 .env.*
 !.env.example
 data/
+.claude/
+claude.md
