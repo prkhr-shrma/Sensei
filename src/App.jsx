@@ -113,6 +113,9 @@ export default function App(){
   const [leftW,setLeftW]=useState(420);
   const [rightW,setRightW]=useState(300);
   const [testH,setTestH]=useState(180);
+  const [timerSecs,setTimerSecs]=useState(0);
+  const [timerRunning,setTimerRunning]=useState(false);
+  const [timerSolved,setTimerSolved]=useState(false);
 
   const chatRef=useRef(null);
   const chatInputRef=useRef(null);
@@ -126,6 +129,9 @@ export default function App(){
   const nudgeTimerRef=useRef(null);
   const lastChatAt=useRef(0);
   const dragRef=useRef(null);
+  const codeSaveTimer=useRef(null);
+  const timerRef=useRef(null);
+  const hasTyped=useRef(false);
   const TMPL="# Write your solution here\n\ndef solution():\n    pass\n";
 
   // ── LOAD (check auth first, then load progress) ──
@@ -262,6 +268,13 @@ export default function App(){
     return()=>{window.removeEventListener('mousemove',onMove);window.removeEventListener('mouseup',onUp);};
   },[]);
 
+  useEffect(()=>{
+    if(timerRunning){
+      timerRef.current=setInterval(()=>setTimerSecs(s=>s+1),1000);
+    }
+    return()=>clearInterval(timerRef.current);
+  },[timerRunning]);
+
   // ── AI CALL ──
   const call=async(text,withCode=false,system=null,maxTok=150)=>{
     if(!text.trim()&&!withCode) return;
@@ -306,9 +319,11 @@ export default function App(){
   const selectProb=(p)=>{
     if(revMode){setRevMode(false);setRevRunning(false);clearInterval(revInterval.current);}
     clearTimeout(nudgeTimerRef.current);
-    setProb(p);setCode(TMPL);setShowSol(false);setTab("desc");setPendingReview(false);setReviewRejected(false);setTestOut(null);setCustomIn("");
+    const saved=localStorage.getItem(`code_${p.id}`);
+    setProb(p);setCode(saved||TMPL);setShowSol(false);setTab("desc");setPendingReview(false);setReviewRejected(false);setTestOut(null);setCustomIn("");
     setAttempted(prev=>new Set([...prev,p.id]));
     setMsgs([{role:"assistant",content:`**${p.title}**. What's your brute force?`}]);
+    clearInterval(timerRef.current);setTimerSecs(0);setTimerRunning(false);setTimerSolved(false);hasTyped.current=false;
   };
 
   // ── START REVISION ──
@@ -329,6 +344,7 @@ export default function App(){
     setXp(p=>p+XPV[prob.diff]);
     if(lastDay!==today){setStreak(p=>p+1);setLastDay(today);}
     setHistory(h=>({...h,[pid]:{firstSolved:Date.now(),lastRevised:Date.now(),revCount:0}}));
+    clearInterval(timerRef.current);setTimerRunning(false);setTimerSolved(true);
   };
 
   const submitForReview=()=>{
@@ -677,6 +693,11 @@ export default function App(){
             <span style={{fontSize:9,color:revMode?"#f87171":peeking?"#fbbf24":"var(--text4)",transition:"color 0.3s"}}>
               {revMode?`⏱ ${fmtTime(revSecs)}`:peeking?"👁 watching...":"Python 3"}
             </span>
+            {!revMode&&timerSecs>0&&(
+              <span style={{fontSize:9,color:timerSolved?"#4ade80":timerSecs>1800?"#f87171":"var(--text3)",transition:"color 0.3s",marginLeft:2}}>
+                {timerSolved?"✓ ":timerSecs>1800?"⚠ ":""}{fmtTime(timerSecs)}
+              </span>
+            )}
             <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
               {revMode?(
                 <>
@@ -710,7 +731,12 @@ export default function App(){
           <div style={{flex:1,overflow:"hidden",background:revMode?"#08080e":"var(--code)"}}>
             <CodeMirror
               value={code}
-              onChange={val=>setCode(val)}
+              onChange={val=>{
+                setCode(val);
+                clearTimeout(codeSaveTimer.current);
+                codeSaveTimer.current=setTimeout(()=>localStorage.setItem(`code_${prob.id}`,val),500);
+                if(!hasTyped.current&&!revMode){hasTyped.current=true;setTimerRunning(true);}
+              }}
               extensions={[python()]}
               theme={dk?githubDark:githubLight}
               height="100%"
