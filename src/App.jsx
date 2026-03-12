@@ -382,6 +382,9 @@ export default function App(){
   const [customIn,setCustomIn]=useState("");
   const [testOut,setTestOut]=useState(null);
   const [testLoad,setTestLoad]=useState(false);
+  const [leftW,setLeftW]=useState(420);
+  const [rightW,setRightW]=useState(300);
+  const [testH,setTestH]=useState(180);
 
   const chatRef=useRef(null);
   const chatInputRef=useRef(null);
@@ -394,6 +397,7 @@ export default function App(){
   const peekCount=useRef({pid:null,n:0});
   const nudgeTimerRef=useRef(null);
   const lastChatAt=useRef(0);
+  const dragRef=useRef(null);
   const TMPL="# Write your solution here\n\ndef solution():\n    pass\n";
 
   // ── LOAD (check auth first, then load progress) ──
@@ -515,6 +519,20 @@ export default function App(){
     peekCount.current={pid:prob.id,n:0};
     clearTimeout(peekTimer.current);clearTimeout(nudgeTimerRef.current);setPeeking(false);
   },[prob.id]);
+
+  useEffect(()=>{
+    const onMove=e=>{
+      if(!dragRef.current) return;
+      const {type,startPos,startSize}=dragRef.current;
+      if(type==='left') setLeftW(Math.max(160,startSize+(e.clientX-startPos)));
+      else if(type==='right') setRightW(Math.max(200,startSize-(e.clientX-startPos)));
+      else if(type==='test') setTestH(Math.max(80,Math.min(400,startSize-(e.clientY-startPos))));
+    };
+    const onUp=()=>{dragRef.current=null;document.body.style.cursor='';document.body.style.userSelect='';};
+    window.addEventListener('mousemove',onMove);
+    window.addEventListener('mouseup',onUp);
+    return()=>{window.removeEventListener('mousemove',onMove);window.removeEventListener('mouseup',onUp);};
+  },[]);
 
   // ── AI CALL ──
   const call=async(text,withCode=false,system=null,maxTok=150)=>{
@@ -864,7 +882,7 @@ export default function App(){
       <div style={{display:"flex",flex:1,overflow:"hidden"}}>
 
         {/* ── LEFT PANEL: Problem Description ── */}
-        <div style={{flex:"0 0 38%",display:"flex",flexDirection:"column",borderRight:"1px solid var(--border)",overflow:"hidden",background:"var(--panel)"}}>
+        <div style={{width:leftW,flexShrink:0,display:"flex",flexDirection:"column",borderRight:"1px solid var(--border)",overflow:"hidden",background:"var(--panel)"}}>
           {/* Problem header */}
           <div style={{padding:"10px 14px",borderBottom:"1px solid var(--border)",flexShrink:0}}>
             <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
@@ -915,6 +933,12 @@ export default function App(){
             )}
           </div>
         </div>
+
+        {/* ── DRAG HANDLE: left ↔ center ── */}
+        <div onMouseDown={e=>{dragRef.current={type:'left',startPos:e.clientX,startSize:leftW};document.body.style.cursor='col-resize';document.body.style.userSelect='none';}}
+          style={{width:5,flexShrink:0,cursor:'col-resize',background:'transparent',transition:'background 0.15s',zIndex:1}}
+          onMouseEnter={e=>e.currentTarget.style.background='var(--border)'}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}/>
 
         {/* ── CENTER PANEL: Code Editor ── */}
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
@@ -977,7 +1001,13 @@ export default function App(){
           </div>
           {/* Test panel */}
           {testOpen&&!revMode&&(
-            <div style={{borderTop:"1px solid var(--border)",background:"var(--panel2)",padding:"8px 12px",flexShrink:0,maxHeight:200,overflowY:"auto"}}>
+            <div onMouseDown={e=>{dragRef.current={type:'test',startPos:e.clientY,startSize:testH};document.body.style.cursor='row-resize';document.body.style.userSelect='none';}}
+              style={{height:5,flexShrink:0,cursor:'row-resize',background:'transparent',transition:'background 0.15s'}}
+              onMouseEnter={e=>e.currentTarget.style.background='var(--border)'}
+              onMouseLeave={e=>e.currentTarget.style.background='transparent'}/>
+          )}
+          {testOpen&&!revMode&&(
+            <div style={{borderTop:"1px solid var(--border)",background:"var(--panel2)",padding:"8px 12px",flexShrink:0,height:testH,overflowY:"auto"}}>
               <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:6}}>
                 <span style={{fontSize:9,color:"var(--text3)",fontWeight:700}}>CUSTOM INPUT</span>
                 <span style={{fontSize:8,color:"var(--text4)"}}>(stdin — your code reads via input())</span>
@@ -1009,8 +1039,14 @@ export default function App(){
           )}
         </div>
 
+        {/* ── DRAG HANDLE: center ↔ right ── */}
+        <div onMouseDown={e=>{dragRef.current={type:'right',startPos:e.clientX,startSize:rightW};document.body.style.cursor='col-resize';document.body.style.userSelect='none';}}
+          style={{width:5,flexShrink:0,cursor:'col-resize',background:'transparent',transition:'background 0.15s',zIndex:1}}
+          onMouseEnter={e=>e.currentTarget.style.background='var(--border)'}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}/>
+
         {/* ── RIGHT PANEL: Sensei Chat ── */}
-        <div style={{width:300,display:"flex",flexDirection:"column",borderLeft:`1px solid ${revMode?"#3a1010":"var(--border)"}`,background:revMode?"#070408":"var(--chat)",flexShrink:0}}>
+        <div style={{width:rightW,flexShrink:0,display:"flex",flexDirection:"column",borderLeft:`1px solid ${revMode?"#3a1010":"var(--border)"}`,background:revMode?"#070408":"var(--chat)"}}>
           {/* Chat header */}
           <div style={{padding:"7px 12px",background:"var(--panel)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
             <span style={{width:5,height:5,borderRadius:"50%",background:revMode?"#818cf8":peeking?"#fbbf24":"#4ade80",display:"inline-block",boxShadow:peeking?"0 0 6px #fbbf24":"none",transition:"all 0.3s"}}/>
