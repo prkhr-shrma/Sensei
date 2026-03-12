@@ -42,6 +42,26 @@ const CATS=[...new Set(P.map(p=>p.cat))];
 const DC={Easy:"#4ade80",Medium:"#fb923c",Hard:"#f87171"};
 const REV_XP_MULT=2;
 
+// ─── PROBLEM RECOMMENDATION (deterministic, pattern-based) ────
+function getRecommendation(pid, solvedSet){
+  const cur=P.find(p=>p.id===pid);
+  if(!cur) return null;
+  const unsolved=p=>p.id!==pid&&!solvedSet.has(p.id);
+  const byPat=P.filter(p=>unsolved(p)&&p.pat===cur.pat);
+  if(byPat.length){
+    const r=byPat[0];
+    return `Nice work! Try **${r.title}** next — same **${r.pat}** pattern. [${r.diff}]`;
+  }
+  const byCat=P.filter(p=>unsolved(p)&&p.cat===cur.cat);
+  if(byCat.length){
+    const r=byCat[0];
+    return `Nice work! Try **${r.title}** next — also in **${r.cat}**. [${r.diff}]`;
+  }
+  const any=P.find(p=>unsolved(p));
+  if(any) return `Nice work! Try **${any.title}** next. [${any.diff}]`;
+  return `You've solved everything in this category! 🏆`;
+}
+
 // ─── STORAGE (SQLite via server — session auth, localStorage fallback) ───────
 async function load(){
   try{const r=await fetch('/api/progress',{credentials:'include'});if(r.ok)return await r.json();}catch{}
@@ -64,6 +84,94 @@ function Msg({text}){
     if(p.startsWith("`")&&p.endsWith("`")) return <code key={i} style={{background:"var(--inline-code-bg)",color:"var(--inline-code-color)",padding:"1px 4px",borderRadius:3,fontSize:11}}>{p.slice(1,-1)}</code>;
     return <span key={i}>{p}</span>;
   })}</span>;
+}
+
+// ─── ACTIVITY HEATMAP (last 52 weeks, GitHub-style) ──────────
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function heatColor(n){
+  if(n===0)return'var(--border)';
+  if(n===1)return'#166534';
+  if(n===2)return'#15803d';
+  if(n===3)return'#16a34a';
+  return'#4ade80';
+}
+function Heatmap({history}){
+  // date→count from firstSolved timestamps
+  const counts={};
+  Object.values(history).forEach(({firstSolved})=>{
+    if(!firstSolved)return;
+    const d=new Date(firstSolved);
+    const k=`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    counts[k]=(counts[k]||0)+1;
+  });
+  // build 53 week columns ending today
+  const today=new Date();today.setHours(0,0,0,0);
+  const dow=today.getDay(); // 0=Sun
+  const start=new Date(today);
+  start.setDate(today.getDate()-(52*7+dow));
+  const weeks=[];
+  const cur=new Date(start);
+  while(cur<=today){
+    const week=[];
+    for(let d=0;d<7;d++){
+      const k=`${cur.getFullYear()}-${cur.getMonth()}-${cur.getDate()}`;
+      week.push({date:new Date(cur),count:counts[k]||0});
+      cur.setDate(cur.getDate()+1);
+      if(cur>today&&d<6){for(let r=d+1;r<7;r++)week.push({date:null,count:-1});break;}
+    }
+    weeks.push(week);
+  }
+  const totalSolves=Object.values(counts).reduce((a,b)=>a+b,0);
+  return(
+    <div style={{background:"var(--panel2)",border:"1px solid var(--border)",borderRadius:8,padding:14,width:'100%',boxSizing:'border-box'}}>
+      <div style={{fontSize:10,color:"var(--text3)",marginBottom:8,display:'flex',justifyContent:'space-between'}}>
+        <span>ACTIVITY — last 52 weeks</span>
+        <span style={{color:'var(--text4)'}}>{totalSolves} solve{totalSolves!==1?'s':''}</span>
+      </div>
+      <div style={{overflowX:'auto',paddingBottom:4}}>
+        <div style={{display:'flex',gap:2,alignItems:'flex-start',minWidth:'fit-content'}}>
+          {/* Day labels col */}
+          <div style={{display:'flex',flexDirection:'column',gap:1,marginRight:3,marginTop:16}}>
+            {['','Mon','','Wed','','Fri',''].map((label,i)=>(
+              <div key={i} style={{height:10,fontSize:7,color:'var(--text4)',lineHeight:'10px',userSelect:'none'}}>{label}</div>
+            ))}
+          </div>
+          {/* Grid */}
+          <div style={{display:'flex',flexDirection:'column'}}>
+            {/* Month labels */}
+            <div style={{display:'flex',gap:2,marginBottom:3,height:13}}>
+              {weeks.map((week,wi)=>{
+                const d=week.find(c=>c.date)?.date;
+                const show=d&&d.getDate()<=7;
+                return <div key={wi} style={{width:10,fontSize:7,color:'var(--text4)',overflow:'visible',whiteSpace:'nowrap'}}>{show?MONTHS[d.getMonth()]:''}</div>;
+              })}
+            </div>
+            {/* Week columns */}
+            <div style={{display:'flex',gap:2}}>
+              {weeks.map((week,wi)=>(
+                <div key={wi} style={{display:'flex',flexDirection:'column',gap:1}}>
+                  {week.map((cell,di)=>(
+                    <div key={di}
+                      title={cell.date?`${cell.date.toLocaleDateString()}: ${cell.count} solved`:''}
+                      style={{width:10,height:10,borderRadius:2,
+                        background:cell.count<0?'transparent':heatColor(cell.count),
+                        cursor:cell.count>0?'default':'default',
+                        transition:'opacity 0.1s'}}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:3,marginTop:6,justifyContent:'flex-end'}}>
+        <span style={{fontSize:8,color:'var(--text4)'}}>Less</span>
+        {[0,1,2,3,4].map(n=><div key={n} style={{width:10,height:10,borderRadius:2,background:heatColor(n)}}/>)}
+        <span style={{fontSize:8,color:'var(--text4)'}}>More</span>
+      </div>
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -345,6 +453,9 @@ export default function App(){
     if(lastDay!==today){setStreak(p=>p+1);setLastDay(today);}
     setHistory(h=>({...h,[pid]:{firstSolved:Date.now(),lastRevised:Date.now(),revCount:0}}));
     clearInterval(timerRef.current);setTimerRunning(false);setTimerSolved(true);
+    // Append recommendation (first solve only — not revision)
+    const rec=getRecommendation(pid,solved);
+    if(rec) setMsgs(m=>[...m,{role:'assistant',content:rec}]);
   };
 
   const submitForReview=()=>{
@@ -620,6 +731,11 @@ export default function App(){
               </div>
             ))}
           </div>}
+
+          {/* Activity heatmap — full width row */}
+          <div style={{width:'100%',flexBasis:'100%'}}>
+            <Heatmap history={history}/>
+          </div>
         </div>
       ):(
       /* ── PRACTICE VIEW — 3-PANEL ── */
