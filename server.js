@@ -8,7 +8,7 @@ import { Strategy as GitHubStrategy } from 'passport-github2';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
-import { getProgress, saveProgress, upsertUser, getUserByGithubId, createSessionStore } from './db.js';
+import { getProgress, saveProgress, upsertUser, getUserByGithubId, createSessionStore, initDb } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,26 +55,28 @@ passport.use(new GitHubStrategy(
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     callbackURL: process.env.GITHUB_CALLBACK_URL || '/auth/github/callback',
   },
-  (_accessToken, _refreshToken, profile, done) => {
-    const user = {
-      id: `gh_${profile.id}`,
-      githubId: profile.id,
-      username: profile.username,
-      avatarUrl: profile.photos?.[0]?.value ?? null,
-    };
-    upsertUser(user);
-    done(null, user);
+  async (_accessToken, _refreshToken, profile, done) => {
+    try {
+      const user = {
+        id: `gh_${profile.id}`,
+        githubId: profile.id,
+        username: profile.username,
+        avatarUrl: profile.photos?.[0]?.value ?? null,
+      };
+      await upsertUser(user);
+      done(null, user);
+    } catch (err) { done(err); }
   }
 ));
 
 passport.serializeUser((user, done) => done(null, user.id));
-passport.deserializeUser((id, done) => {
-  // id is already the full user_id string stored in session
-  // We reconstruct minimal user from the id (githubId embedded)
-  const githubId = id.replace(/^gh_/, '');
-  const row = getUserByGithubId(githubId);
-  if (!row) return done(null, false);
-  done(null, { id: row.id, githubId: row.github_id, username: row.username, avatarUrl: row.avatar_url });
+passport.deserializeUser(async (id, done) => {
+  try {
+    const githubId = id.replace(/^gh_/, '');
+    const row = await getUserByGithubId(githubId);
+    if (!row) return done(null, false);
+    done(null, { id: row.id, githubId: row.github_id, username: row.username, avatarUrl: row.avatar_url });
+  } catch (err) { done(err); }
 });
 
 app.use(passport.initialize());
@@ -125,17 +127,17 @@ app.post('/api/logout', (req, res, next) => {
 
 // ── Progress (per-user, auth required) ───────────────────────
 
-app.get('/api/progress', requireAuth, (req, res) => {
-  try { res.json(getProgress(req.user.id)); }
+app.get('/api/progress', requireAuth, async (req, res) => {
+  try { res.json(await getProgress(req.user.id)); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/progress', requireAuth, (req, res) => {
+app.post('/api/progress', requireAuth, async (req, res) => {
   // Legacy token check kept for backward-compat during transition
   const token = process.env.PROGRESS_TOKEN;
   if (token && req.headers['x-progress-token'] !== token && !req.isAuthenticated())
     return res.status(401).json({ error: 'Unauthorized.' });
-  try { saveProgress(req.body, req.user.id); res.json({ ok: true }); }
+  try { await saveProgress(req.body, req.user.id); res.json({ ok: true }); }
   catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -209,5 +211,7 @@ app.get('*', (_req, res) => {
 // ── Start (skipped during tests)
 if (process.env.NODE_ENV !== 'test') {
   const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => console.log(`sensei server on http://localhost:${PORT}`));
+  initDb()
+    .then(() => app.listen(PORT, () => console.log(`sensei server on http://localhost:${PORT}`)))
+    .catch(err => { console.error('DB init failed:', err.message); process.exit(1); });
 }
