@@ -534,23 +534,40 @@ export default function App(){
         <svg height="20" viewBox="0 0 24 24" fill="#0d1117"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
         Continue with GitHub
       </a>
-      <div style={{fontSize:9,color:"#3a5070",textAlign:"center"}}>Only your GitHub username and avatar are stored.</div>
+      <div style={{fontSize:9,color:"var(--text3)",textAlign:"center"}}>Only your GitHub username and avatar are stored.</div>
     </div>
   );
 
   return(
     <div style={{
-      "--bg":dk?"#070b12":"#f8f9fb","--panel":dk?"#0a1020":"#ffffff","--sidebar":dk?"#080e1a":"#f0f4f8",
-      "--code":dk?"#040912":"#f5f5f8","--panel2":dk?"#0b1525":"#f4f7fb","--chat":dk?"#060c16":"#f8f9fb",
-      "--deep":dk?"#0a0f1a":"#e8edf4","--border":dk?"#1a2a40":"#d0dae8","--border2":dk?"#0f1a2a":"#e4eaf4",
-      "--border3":dk?"#1a2535":"#dce5f0","--text":dk?"#dde4ef":"#1a2035","--text2":dk?"#5a7090":"#3d5168",
-      "--text3":dk?"#2a4060":"#6277a0","--text4":dk?"#1e3050":"#8095b2","--chatmsg":dk?"#0a1525":"#eef2f9",
-      "--chatuser":dk?"#0f1e35":"#e0eaf8","--codetext":dk?"#c9d4e8":"#2d3748",
-      "--code-border":dk?"#1a3a5f":"#c0d0e8","--inline-code-bg":dk?"#1e2a3a":"#e0eaf5",
-      "--inline-code-color":dk?"#7dd3fc":"#1a6080","--accent":"#fbbf24",
-      "--btn-border":dk?"#1e3050":"#b0c0d8","--chat-peek-bg":dk?"#0a1a10":"#e8f4ec",
-      "--chat-peek-color":dk?"#6ab88a":"#1a6a3a","--chat-peek-border":dk?"#1a3020":"#b0d8c0",
-      "--chat-user-color":dk?"#5a8ab0":"#1a4a6a","--chat-msg-color":dk?"#8aa0b8":"#2a4060",
+      // ── Dark: VS Code Dark+ ── Light: VS Code Light+ ──
+      "--bg":         dk?"#1e1e1e":"#ffffff",
+      "--panel":      dk?"#252526":"#f3f3f3",
+      "--sidebar":    dk?"#252526":"#f3f3f3",
+      "--panel2":     dk?"#2d2d2d":"#ebebeb",
+      "--deep":       dk?"#1e1e1e":"#e8e8e8",
+      "--chat":       dk?"#252526":"#f3f3f3",
+      "--code":       dk?"#1e1e1e":"#ffffff",
+      "--border":     dk?"#3e3e42":"#d4d4d4",
+      "--border2":    dk?"#333337":"#e5e5e5",
+      "--border3":    dk?"#474747":"#cccccc",
+      "--text":       dk?"#d4d4d4":"#1f1f1f",
+      "--text2":      dk?"#9d9d9d":"#3b3b3b",
+      "--text3":      dk?"#6e6e6e":"#6e6e6e",
+      "--text4":      dk?"#4e4e4e":"#999999",
+      "--chatmsg":    dk?"#2d2d2d":"#f0f0f0",
+      "--chatuser":   dk?"#2a2d2e":"#e8f0fe",
+      "--codetext":   dk?"#d4d4d4":"#1f1f1f",
+      "--code-border":dk?"#3e3e42":"#d4d4d4",
+      "--inline-code-bg":   dk?"#2d2d2d":"#ebebeb",
+      "--inline-code-color":dk?"#9cdcfe":"#0070c1",
+      "--accent":     "#fbbf24",
+      "--btn-border": dk?"#3e3e42":"#c8c8c8",
+      "--chat-peek-bg":    dk?"#1e2d1e":"#e6f4e6",
+      "--chat-peek-color": dk?"#4ec994":"#1a7a3a",
+      "--chat-peek-border":dk?"#2d4a2d":"#a8d8a8",
+      "--chat-user-color": dk?"#9cdcfe":"#0070c1",
+      "--chat-msg-color":  dk?"#9d9d9d":"#3b3b3b",
       display:"flex",flexDirection:"column",height:"100vh",background:"var(--bg)",color:"var(--text)",fontFamily:"'JetBrains Mono','Fira Mono',monospace",overflow:"hidden",position:"relative"}}>
       <style>{`
         @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
@@ -602,25 +619,25 @@ export default function App(){
         {view==='practice'&&<span style={{fontSize:10,color:"var(--text3)",marginLeft:4}}>{prob.title}</span>}
 
         {revMode?(
-          <div style={{display:"flex",alignItems:"center",gap:8,background:"#1a0a0a",border:"1px solid #5a1010",borderRadius:4,padding:"3px 10px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"rgba(248,113,113,0.1)",border:"1px solid rgba(248,113,113,0.35)",borderRadius:4,padding:"3px 10px"}}>
             <span style={{fontSize:9,color:"#f87171",fontWeight:700}}>⏱ REVISION</span>
             <span style={{fontSize:12,fontWeight:700,color:timerWarn?"#f87171":"#fbbf24",animation:timerWarn?"warn 0.8s infinite":"none"}}>{fmtTime(revSecs)}</span>
-            <button onClick={()=>{setRevMode(false);setRevRunning(false);clearInterval(revInterval.current);setCode(TMPL);setMsgs([{role:"assistant",content:"Back to practice."}]);}} style={{background:"none",border:"none",color:"#3a1010",cursor:"pointer",fontSize:10,fontFamily:"inherit"}}>✕ exit</button>
+            <button onClick={()=>{setRevMode(false);setRevRunning(false);clearInterval(revInterval.current);setCode(TMPL);setMsgs([{role:"assistant",content:"Back to practice."}]);}} style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:10,fontFamily:"inherit",opacity:0.6}}>✕ exit</button>
           </div>
         ):(
-          <div style={{background:dt==='revision'?(dk?"#1a2040":"#eeeeff"):(dk?"#0f1a10":"#e8f8ee"),border:`1px solid ${dt==='revision'?(dk?"#2a3a80":"#a0a8e0"):(dk?"#1a3020":"#90d0a0")}`,borderRadius:3,padding:"2px 8px",fontSize:9,color:dt==='revision'?"#818cf8":"#22a060"}}>
+          <div style={{background:dt==='revision'?"rgba(129,140,248,0.12)":"rgba(74,222,128,0.1)",border:`1px solid ${dt==='revision'?"rgba(129,140,248,0.5)":"rgba(74,222,128,0.4)"}`,borderRadius:3,padding:"2px 8px",fontSize:9,color:dt==='revision'?"#818cf8":"#22a060"}}>
             {dn} · {dt==='revision'?"📖 Revision Day":"🔥 Practice Day"}
           </div>
         )}
 
         <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:14}}>
           <span style={{fontSize:10,color:streak>0?"#fb923c":"var(--text3)"}}>🔥{streak}d</span>
-          <span style={{fontSize:10,color:"#7c6fc0"}}>Lv{lvl} <span style={{color:"#3a3060"}}>{lxp}/100</span></span>
+          <span style={{fontSize:10,color:"#c586c0"}}>Lv{lvl} <span style={{color:"var(--text3)"}}>{lxp}/100</span></span>
           <div style={{display:"flex",alignItems:"center",gap:6,fontSize:10}}>
             <span style={{color:sc>0?"#4ade80":"var(--text3)"}}>{sc}<span style={{color:"var(--text4)"}}>/75</span></span>
             <div style={{width:60,height:3,background:"var(--border)",borderRadius:2,overflow:"hidden"}}><div style={{height:"100%",width:`${(sc/75)*100}%`,background:"linear-gradient(90deg,#f59e0b,#4ade80)",transition:"width 0.5s"}}/></div>
           </div>
-          {dueProblems.length>0&&<span style={{fontSize:9,color:"#f87171",background:"#1a0a0a",border:"1px solid #3a1010",padding:"1px 7px",borderRadius:3}}>⚠ {dueProblems.length} due</span>}
+          {dueProblems.length>0&&<span style={{fontSize:9,color:"#f87171",background:"rgba(248,113,113,0.12)",border:"1px solid rgba(248,113,113,0.4)",padding:"1px 7px",borderRadius:3}}>⚠ {dueProblems.length} due</span>}
           <button onClick={()=>{const n=!dk;setDk(n);localStorage.setItem('dk',n?'dark':'light');}} title={dk?"Switch to light mode":"Switch to dark mode"} style={{padding:"5px 8px",background:"var(--border2)",border:"1px solid var(--border)",color:"var(--text3)",borderRadius:3,cursor:"pointer",lineHeight:0,display:"flex",alignItems:"center"}}>
             {dk
               ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -661,7 +678,7 @@ export default function App(){
                 const isPrac=i<5,isToday=i===([0,6,1,2,3,4,5][new Date().getDay()]);
                 return <div key={i} style={{flex:1,textAlign:"center"}}>
                   <div style={{fontSize:8,color:isToday?"#fbbf24":"var(--text4)",marginBottom:3}}>{d}</div>
-                  <div style={{height:26,borderRadius:3,background:isToday?(isPrac?"#0f2010":"#0f0f30"):isPrac?"#0a150a":"#0a0a1a",border:`1px solid ${isToday?(isPrac?"#4ade80":"#818cf8"):"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10}}>
+                  <div style={{height:26,borderRadius:3,background:isToday?(isPrac?"rgba(74,222,128,0.12)":"rgba(129,140,248,0.12)"):"var(--panel2)",border:`1px solid ${isToday?(isPrac?"#4ade80":"#818cf8"):"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10}}>
                     {isPrac?"💻":"📖"}
                   </div>
                 </div>;
@@ -671,7 +688,7 @@ export default function App(){
           </div>
 
           {/* Revision queue */}
-          <div style={{background:"var(--deep)",border:`1px solid ${dueProblems.length>0?"#3a1010":"var(--border)"}`,borderRadius:8,padding:14,minWidth:240}}>
+          <div style={{background:"var(--deep)",border:`1px solid ${dueProblems.length>0?"rgba(248,113,113,0.4)":"var(--border)"}`,borderRadius:8,padding:14,minWidth:240}}>
             <div style={{fontSize:10,color:dueProblems.length>0?"#f87171":"var(--text3)",marginBottom:8,display:"flex",justifyContent:"space-between"}}>
               <span>📖 REVISION QUEUE</span>
               {dueProblems.length>0&&<span style={{color:"#f87171"}}>{dueProblems.length} overdue</span>}
@@ -684,7 +701,7 @@ export default function App(){
                 <span style={{flex:1,fontSize:10,color:"var(--text2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.title}</span>
                 <span style={{fontSize:9,color:"var(--text3)"}}>{c}%</span>
                 <span style={{fontSize:8,color:DC[p.diff]}}>{p.diff[0]}</span>
-                <span style={{fontSize:9,color:"var(--text3)",background:"#0f1520",padding:"1px 6px",borderRadius:3}}>▶ revise</span>
+                <span style={{fontSize:9,color:"var(--text3)",background:"var(--panel2)",padding:"1px 6px",borderRadius:3}}>▶ revise</span>
               </div>;
             })}
           </div>
@@ -697,7 +714,7 @@ export default function App(){
               const done=P.filter(p=>p.cat===cat&&solved.has(p.id)).length;
               return <div key={cat} style={{marginBottom:6}}>
                 <div style={{display:"flex",justifyContent:"space-between",fontSize:9,marginBottom:2}}>
-                  <span style={{color:"#3a5070"}}>{cat}</span>
+                  <span style={{color:"var(--text3)"}}>{cat}</span>
                   <span style={{color:done===total&&done>0?"#4ade80":"var(--text4)"}}>{done}/{total}</span>
                 </div>
                 <div style={{height:3,background:"var(--border)",borderRadius:2}}><div style={{height:"100%",width:`${(done/total)*100}%`,background:done===total?"#4ade80":"#fbbf24",borderRadius:2,transition:"width 0.5s"}}/></div>
@@ -716,7 +733,7 @@ export default function App(){
               </div>;
             })}
             <div style={{borderTop:"1px solid var(--border)",marginTop:8,paddingTop:6,fontSize:10,color:"#a78bfa"}}>Total: {xp}xp · Lv{lvl}</div>
-            <div style={{marginTop:4,fontSize:9,color:"#3a3060"}}>Revision solve = {REV_XP_MULT}× XP (if cold)</div>
+            <div style={{marginTop:4,fontSize:9,color:"var(--text4)"}}>Revision solve = {REV_XP_MULT}× XP (if cold)</div>
           </div>
 
           {/* Fluency breakdown */}
@@ -727,7 +744,7 @@ export default function App(){
               ["🔴 Due (<50%)",P.filter(p=>solved.has(p.id)&&(conf(p.id)||0)<50).length,"#f87171"]
             ].map(([label,count,color])=>(
               <div key={label} style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:10}}>
-                <span style={{color:"#3a5070"}}>{label}</span>
+                <span style={{color:"var(--text3)"}}>{label}</span>
                 <span style={{color}}>{count}</span>
               </div>
             ))}
@@ -804,14 +821,14 @@ export default function App(){
         {/* ── CENTER PANEL: Code Editor ── */}
         <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
           {/* Editor top bar */}
-          <div style={{padding:"6px 12px",background:"var(--panel)",borderBottom:`1px solid ${revMode?"#3a1010":"var(--border)"}`,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+          <div style={{padding:"6px 12px",background:"var(--panel)",borderBottom:`1px solid ${revMode?"rgba(248,113,113,0.4)":"var(--border)"}`,display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
             <span style={{fontSize:9,color:"var(--text4)"}}>solution.py</span>
             <span style={{fontSize:9,color:"var(--border)"}}>|</span>
             <span style={{fontSize:9,color:revMode?"#f87171":peeking?"#fbbf24":"var(--text4)",transition:"color 0.3s"}}>
               {revMode?`⏱ ${fmtTime(revSecs)}`:peeking?"👁 watching...":"Python 3"}
             </span>
-            {!revMode&&timerSecs>0&&(
-              <span style={{fontSize:9,color:timerSolved?"#4ade80":timerSecs>1800?"#f87171":"var(--text3)",transition:"color 0.3s",marginLeft:2}}>
+            {!revMode&&(
+              <span style={{fontSize:9,color:timerSolved?"#4ade80":timerSecs>1800?"#f87171":timerSecs>0?"var(--text2)":"var(--text4)",transition:"color 0.3s",marginLeft:2}}>
                 {timerSolved?"✓ ":timerSecs>1800?"⚠ ":""}{fmtTime(timerSecs)}
               </span>
             )}
@@ -917,17 +934,17 @@ export default function App(){
           onMouseLeave={e=>e.currentTarget.style.background='transparent'}/>
 
         {/* ── RIGHT PANEL: Sensei Chat ── */}
-        <div style={{width:rightW,flexShrink:0,display:"flex",flexDirection:"column",borderLeft:`1px solid ${revMode?"#3a1010":"var(--border)"}`,background:revMode?"#070408":"var(--chat)"}}>
+        <div style={{width:rightW,flexShrink:0,display:"flex",flexDirection:"column",borderLeft:`1px solid ${revMode?"rgba(248,113,113,0.4)":"var(--border)"}`,background:revMode?dk?"#1e1010":"#fff5f5":"var(--chat)"}}>
           {/* Chat header */}
           <div style={{padding:"7px 12px",background:"var(--panel)",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
             <span style={{width:5,height:5,borderRadius:"50%",background:revMode?"#818cf8":peeking?"#fbbf24":"#4ade80",display:"inline-block",boxShadow:peeking?"0 0 6px #fbbf24":"none",transition:"all 0.3s"}}/>
             <span style={{fontSize:11,fontWeight:600,color:revMode?"#818cf8":"var(--text)"}}>{revMode?"Sensei (silent)":"Sensei"}</span>
             {peeking&&<span style={{fontSize:8.5,color:"#fbbf24",animation:"blink 1s infinite"}}>watching</span>}
-            {!revMode&&<button onClick={()=>setPeekOn(p=>!p)} style={{marginLeft:"auto",padding:"4px 11px",background:peekOn?(dk?"#0f1a10":"#e8f8ee"):(dk?"#1a1010":"#fdecea"),border:`1px solid ${peekOn?(dk?"#1a3020":"#90d0a0"):(dk?"#3a1010":"#f0a0a0")}`,color:peekOn?"#4ade80":"#f87171",borderRadius:3,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
+            {!revMode&&<button onClick={()=>setPeekOn(p=>!p)} style={{marginLeft:"auto",padding:"4px 11px",background:peekOn?"rgba(74,222,128,0.1)":"rgba(248,113,113,0.1)",border:`1px solid ${peekOn?"rgba(74,222,128,0.4)":"rgba(248,113,113,0.4)"}`,color:peekOn?"#4ade80":"#f87171",borderRadius:3,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
               {peekOn?"👁 on":"👁 off"}
             </button>}
           </div>
-          {revMode&&<div style={{padding:"8px 12px",background:"#0a0820",borderBottom:"1px solid #1a1030",fontSize:10,color:"#3a3060",lineHeight:1.5}}>
+          {revMode&&<div style={{padding:"8px 12px",background:"var(--panel2)",borderBottom:"1px solid var(--border)",fontSize:10,color:"var(--text4)",lineHeight:1.5}}>
             Sensei is quiet. You're on your own. Prove you know it cold.<br/>
             <span style={{color:"#1a1040"}}>Ask a question → "You're on your own."</span>
           </div>}
